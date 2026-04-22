@@ -126,6 +126,38 @@
       if (msgs[i].sender === "STAFF" && msgs[i].createdAt > w) return true;
     return false;
   }
+  function mg(localMsgs, serverMsgs, optimisticId, optimisticBody) {
+    localMsgs = (localMsgs || []).filter(function (x) { return x && x.id != optimisticId; });
+    var byId = {};
+    for (var i = 0; i < localMsgs.length; i++) {
+      if (localMsgs[i] && localMsgs[i].id) byId[localMsgs[i].id] = 1;
+    }
+    var picked = null;
+    for (var j = 0; j < (serverMsgs || []).length; j++) {
+      var sm = serverMsgs[j];
+      if (!sm || !sm.id) continue;
+      if (!byId[sm.id] && sm.sender === "VISITOR" && sm.body === optimisticBody) {
+        picked = sm;
+        break;
+      }
+    }
+    if (picked) localMsgs = localMsgs.concat([picked]);
+    for (var k = 0; k < (serverMsgs || []).length; k++) {
+      var m = serverMsgs[k];
+      if (!m || !m.id || byId[m.id]) continue;
+      if (picked && m.id === picked.id) continue;
+      localMsgs = localMsgs.concat([m]);
+      byId[m.id] = 1;
+    }
+    localMsgs.sort(function (a, b) {
+      var ac = (a && a.createdAt) || "";
+      var bc = (b && b.createdAt) || "";
+      if (ac < bc) return -1;
+      if (ac > bc) return 1;
+      return 0;
+    });
+    return localMsgs;
+  }
   function init() {
     var v = vid();
     if (!v) return;
@@ -212,9 +244,17 @@
           });
         })
         .then(function (r) {
-          st.m = (st.m || []).filter(function (x) { return x.id != pid; });
           if (!r || !r.j) { st.e = 1; if (S && st.o) ren(S, st.m, !st.m || !st.m.length); return; }
-          if (r.ok && r.j.messages) { st.e = 0; ap(r.j); } else { st.e = 1; if (S && st.o) ren(S, st.m, !st.m || !st.m.length); }
+          if (r.ok && r.j.messages) {
+            st.e = 0;
+            st.m = mg(st.m, r.j.messages, pid, t);
+            if (S && st.o) ren(S, st.m, !!st.e && !(st.m && st.m.length));
+            if (G && !st.o) G.classList.toggle("on", unr(st.m, st.k));
+          } else {
+            st.m = (st.m || []).filter(function (x) { return x.id != pid; });
+            st.e = 1;
+            if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
+          }
         })
         .catch(function () {
           st.m = (st.m || []).filter(function (x) { return x.id != pid; });
