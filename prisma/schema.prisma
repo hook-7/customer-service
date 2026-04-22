@@ -32,3 +32,31 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+enum MessageSender {
+  VISITOR
+  STAFF
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  shop      String
+  visitorId String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@unique([shop, visitorId])
+  @@index([shop, updatedAt])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  body           String
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId, createdAt])
+}

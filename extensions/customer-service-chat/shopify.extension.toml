@@ -1,0 +1,6 @@
+api_version = "2024-10"
+
+name = "customer-service-chat"
+type = "theme"
+handle = "customer-service-chat"
+uid = "7bc3349b-98a3-bb76-cba7-d6d336ec052aa6db8b2e"

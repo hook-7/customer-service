@@ -39,7 +39,8 @@ if (host === "localhost") {
 
 export default defineConfig({
   server: {
-    allowedHosts: [host],
+    // 仅 dev server：App Proxy / 隧道转发时 Host 多变，避免误拦合法请求
+    allowedHosts: true,
     cors: {
       preflightContinue: true,
     },
