@@ -33,22 +33,28 @@
     e.id = "customer-service-chat-styles";
     e.textContent =
       "#customer-service-chat-root{font-family:system-ui,sans-serif}" +
-      ".w{position:fixed;z-index:2147483000;bottom:20px;right:20px}.w *{box-sizing:border-box}" +
-      ".L{pointer-events:auto;position:absolute;bottom:0;right:0;width:56px;height:56px;border:0;border-radius:50%;cursor:pointer;background:linear-gradient(145deg,#0d9488,#047857);color:#fff;box-shadow:0 4px 14px rgba(5,150,105,.4);display:flex;align-items:center;justify-content:center;transition:transform .15s}.L:hover{transform:scale(1.06)}" +
-      ".b{position:absolute;top:5px;right:5px;width:10px;height:10px;background:#ef4444;border-radius:50%;border:2px solid #fff;display:none}.b.on{display:block}" +
-      ".p{pointer-events:auto;position:absolute;bottom:72px;right:0;width:min(372px,calc(100vw - 36px));max-height:min(520px,calc(100vh - 100px));display:flex;flex-direction:column;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 36px rgba(15,23,42,.2);border:1px solid #e2e8f0;opacity:0;transform:translateY(10px) scale(.97);transition:opacity .2s,transform .2s;visibility:hidden}.w.o .p{opacity:1;transform:none;visibility:visible}" +
-      ".h{background:linear-gradient(145deg,#0f766e,#059669);color:#fff;padding:14px 12px;flex-shrink:0}" +
-      ".hr{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}" +
-      ".t{font-size:16px;font-weight:700}.s{font-size:12px;opacity:.9;margin-top:3px}" +
-      ".x{background:rgba(255,255,255,.2);border:0;border-radius:8px;width:32px;height:32px;color:#fff;font-size:20px;line-height:1;cursor:pointer}" +
-      ".c{flex:1;min-height:160px;max-height:300px;overflow-y:auto;padding:12px;background:#f1f5f9}" +
-      ".r{display:flex;margin-bottom:8px;width:100%}.rv{justify-content:flex-end}.rs{justify-content:flex-start}" +
-      ".m{max-width:80%;padding:8px 12px;font-size:14px;line-height:1.4;word-break:break-word}.mv{background:#0d9488;color:#fff;border-radius:14px 14px 4px 14px}.ms{background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:14px 14px 14px 4px}" +
-      ".n{font-size:10px;margin-top:3px;opacity:.7;padding:0 2px}" +
-      ".f{flex-shrink:0;padding:8px 10px 10px;border-top:1px solid #e2e8f0}" +
-      ".i{display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:3px 3px 3px 12px}.i:focus-within{border-color:#14b8a6}" +
-      "input.ipt{flex:1;border:0;background:0;font-size:14px;outline:0;padding:6px 0;min-width:0}" +
-      ".z{width:38px;height:38px;border:0;border-radius:50%;background:linear-gradient(145deg,#0d9488,#059669);color:#fff;font-size:15px;cursor:pointer;line-height:1}";
+      ".w{position:fixed;z-index:2147483000;bottom:22px;right:22px}" +
+      ".L{position:absolute;bottom:0;right:0;width:56px;height:56px;border:0;border-radius:50%;cursor:pointer;background:#0a0a0a;color:#fff;box-shadow:0 6px 20px #0002;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}.L:focus{outline:0}.L:focus-visible{outline:0;box-shadow:0 6px 20px #0002,0 0 0 3px #0a0a0a33}" +
+      ".b{position:absolute;top:4px;right:4px;width:9px;height:9px;background:#ef4444;border-radius:50%;display:none}.b.on{display:block}" +
+      ".p{position:absolute;bottom:72px;right:0;width:min(380px,calc(100vw - 32px));height:min(560px,calc(100vh - 96px));display:flex;flex-direction:column;background:#fff;border-radius:18px;overflow:hidden;border:1px solid #ececec;box-shadow:0 20px 50px -12px #0003;opacity:0;transform:translateY(8px) scale(.98);transition:.22s;visibility:hidden}.w.o .p{opacity:1;transform:none;visibility:visible}" +
+      ".h{padding:16px;border-bottom:1px solid #f0f0f0}" +
+      ".hr{display:flex;justify-content:space-between;align-items:center;gap:8px}" +
+      ".ti{display:flex;align-items:center;gap:10px}" +
+      ".av{width:36px;height:36px;border-radius:50%;background:#0a0a0a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;position:relative}" +
+      ".av::after{content:'';position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;background:#10b981;border-radius:50%;border:2px solid #fff}" +
+      ".t{font-size:15px;font-weight:600;color:#0a0a0a}.s{font-size:12px;color:#737373;margin-top:2px}" +
+      ".x{background:0;border:0;border-radius:8px;width:30px;height:30px;color:#525252;font-size:20px;cursor:pointer;-webkit-tap-highlight-color:transparent}.x:hover{background:#f5f5f5}.x:focus{outline:0}.x:focus-visible{outline:0;box-shadow:0 0 0 3px #0a0a0a1f}" +
+      ".c{flex:1;overflow-y:auto;padding:16px 14px;background:#fafafa}" +
+      ".r{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:10px}.rv{align-items:flex-end}" +
+      ".m{max-width:78%;padding:10px 14px;font-size:14px;line-height:1.5;word-break:break-word}" +
+      ".mv{background:#0a0a0a;color:#fafafa;border-radius:18px 18px 4px 18px}" +
+      ".ms{background:#fff;color:#171717;border:1px solid #ececec;border-radius:18px 18px 18px 4px}" +
+      ".n{font-size:10px;margin-top:4px;padding:0 4px;color:#a3a3a3}" +
+      ".f{padding:10px 12px 12px;border-top:1px solid #f0f0f0}" +
+      ".i{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid transparent;border-radius:999px;padding:3px 3px 3px 14px}.i:focus-within{background:#fff;border-color:#d4d4d4;box-shadow:0 0 0 3px #0a0a0a0f}" +
+      "#customer-service-chat-root input.ipt,#customer-service-chat-root input.ipt:focus,#customer-service-chat-root input.ipt:focus-visible,#customer-service-chat-root input.ipt:active,#customer-service-chat-root input.ipt:hover{flex:1!important;border:0!important;background:transparent!important;font-size:14px!important;outline:0!important;box-shadow:none!important;padding:8px 0!important;min-width:0!important;color:#0a0a0a!important;border-radius:0!important;margin:0!important;-webkit-appearance:none!important;appearance:none!important}#customer-service-chat-root input.ipt::placeholder{color:#a3a3a3!important}" +
+      ".z{width:36px;height:36px;border:0;border-radius:50%;background:#0a0a0a;color:#fff;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}.z:focus{outline:0}.z:focus-visible{outline:0;box-shadow:0 0 0 3px #0a0a0a33}" +
+      ".ce{text-align:center;padding:32px 14px;font-size:13px;color:#737373;line-height:1.6}.er{color:#dc2626;font-size:12px;margin-top:10px}";
     document.head.appendChild(e);
   }
   function esc(s) {
@@ -68,7 +74,15 @@
       return "";
     }
   }
-  function ren(el, msgs, showErr) {
+  function sig(msgs, showErr) {
+    var n = (msgs && msgs.length) || 0;
+    var last = n ? msgs[n - 1] : null;
+    return n + "|" + (last ? (last.id || "") + ":" + (last.createdAt || "") : "") + "|" + (showErr ? 1 : 0);
+  }
+  function ren(el, msgs, showErr, force) {
+    var ns = sig(msgs, showErr);
+    if (!force && el.dataset.sig === ns) return;
+    var atBottom = force || (el.scrollHeight - el.scrollTop - el.clientHeight < 40);
     var h = (msgs || [])
       .map(function (m) {
         var staff = m.sender === "STAFF",
@@ -78,7 +92,7 @@
         return (
           '<div class="' +
           rc +
-          '"><div><div class="' +
+          '"><div class="' +
           bc +
           '">' +
           esc(m.body) +
@@ -86,20 +100,17 @@
           lb +
           " · " +
           tim(m.createdAt) +
-          "</div></div></div>"
+          "</div></div>"
         );
       })
       .join("");
     if (!h) {
-      h =
-        '<div style="text-align:center;padding:24px 12px;color:#64748b;font-size:14px">你好，需要什么帮助？<br><span style="font-size:12px;opacity:.85">留言后我们会尽快回复</span></div>';
-      if (showErr) {
-        h +=
-          '<p style="margin-top:12px;font-size:12px;color:#b91c1c">无法加载消息。请确认应用已安装、已用 <code>shopify app dev</code> 或线上 URL 启用 App Proxy（路径 <code>/apps/cs/</code>），并在店铺后台重新授权应用。</p>';
-      }
+      h = '<div class="ce">有什么可以帮你的吗？<br>留言后我们尽快回复</div>';
+      if (showErr) h += '<p class="er">连接失败</p>';
     }
     el.innerHTML = h;
-    el.scrollTop = el.scrollHeight;
+    el.dataset.sig = ns;
+    if (atBottom) el.scrollTop = el.scrollHeight;
   }
   function max(msgs) {
     var x = "";
@@ -124,7 +135,7 @@
     R.dataset.i = "1";
     var st = { o: !1, m: [], k: "", e: 0 };
     R.innerHTML =
-      '<div class="w" id="W"><div class="p" id="P" role="dialog" aria-label="在线客服"><div class="h"><div class="hr"><div><div class="t">在线客服</div><div class="s">通常几分钟内回复</div></div><button type="button" class="x" id="X" aria-label="收起">×</button></div></div><div class="c" id="S"></div><div class="f"><div class="i"><input class="ipt" id="N" placeholder="输入消息…" autocomplete="off"><button type="button" class="z" id="B" aria-label="发送">➤</button></div></div></div><button type="button" class="L" id="L" aria-label="打开聊天"><span class="b" id="G"></span>' +
+      '<div class="w" id="W"><div class="p"><div class="h"><div class="hr"><div class="ti"><div class="av">CS</div><div><div class="t">在线客服</div><div class="s">在线 · 尽快回复</div></div></div><button class="x" id="X">×</button></div></div><div class="c" id="S"></div><div class="f"><div class="i"><input class="ipt" id="N" placeholder="输入消息…" autocomplete="off"><button class="z" id="B">→</button></div></div></div><button class="L" id="L"><span class="b" id="G"></span>' +
       I +
       "</button></div>";
     var W = document.getElementById("W"),
@@ -139,7 +150,8 @@
       W.classList.toggle("o", e);
       if (e) {
         G.classList.remove("on");
-        ren(S, st.m, !!st.e && !(st.m && st.m.length));
+        S.dataset.sig = "";
+        ren(S, st.m, !!st.e && !(st.m && st.m.length), true);
         setTimeout(function () {
           N.focus();
         }, 180);
@@ -182,6 +194,11 @@
       var t = N.value.trim();
       if (!t) return;
       N.value = "";
+      var pid = "L" + Date.now() + Math.random().toString(36).slice(2, 8);
+      st.m = (st.m || []).concat([
+        { id: pid, sender: "VISITOR", body: t, createdAt: new Date().toISOString() },
+      ]);
+      if (S && st.o) ren(S, st.m, !!st.e && !(st.m && st.m.length), true);
       fetch(url(v), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -195,17 +212,14 @@
           });
         })
         .then(function (r) {
-          if (!r || !r.j) {
-            st.e = 1;
-            if (S && st.o) ren(S, st.m, true);
-            return;
-          }
-          if (r.ok && r.j.messages) ap(r.j);
-          else ap(r.j || { error: "request_failed" });
+          st.m = (st.m || []).filter(function (x) { return x.id != pid; });
+          if (!r || !r.j) { st.e = 1; if (S && st.o) ren(S, st.m, !st.m || !st.m.length); return; }
+          if (r.ok && r.j.messages) { st.e = 0; ap(r.j); } else { st.e = 1; if (S && st.o) ren(S, st.m, !st.m || !st.m.length); }
         })
         .catch(function () {
+          st.m = (st.m || []).filter(function (x) { return x.id != pid; });
           st.e = 1;
-          if (S && st.o) ren(S, st.m, true);
+          if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
         });
     }
     L.addEventListener("click", function () {
@@ -220,9 +234,6 @@
     });
     R.addEventListener("keydown", function (e) {
       if (e.target && e.target.id === "N" && e.key === "Enter") se();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && st.o) op(!1);
     });
     po();
     setInterval(po, P);

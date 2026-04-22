@@ -5,9 +5,8 @@ import type {
 } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import {
-  Form,
+  useFetcher,
   useLoaderData,
-  useNavigation,
   useRevalidator,
   useRouteError,
 } from "@remix-run/react";
@@ -22,8 +21,14 @@ import {
   Text,
   TextField,
 } from "@shopify/polaris";
-import { TitleBar } from "@shopify/app-bridge-react";
-import { useCallback, useEffect, useState } from "react";
+import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   appendMessage,
@@ -100,24 +105,99 @@ export const action = async ({
 
   await appendMessage(conversation.id, "STAFF", body);
 
-  return redirect(`/app/conversations/${conversationId}`);
+  return { ok: true as const };
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  empty: "回复不能为空",
+  too_long: "回复超过 2000 字符",
+  missing_id: "会话 ID 缺失",
+  not_found: "会话不存在",
 };
 
 export default function ConversationDetail() {
   const { conversation } = useLoaderData<typeof loader>();
-  const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const fetcher = useFetcher<typeof action>();
+  const shopify = useAppBridge();
   const [draft, setDraft] = useState("");
-  const busy = navigation.state !== "idle";
+  const busy = fetcher.state !== "idle";
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  const lastSigRef = useRef("");
+  const lastFetcherDataRef = useRef<typeof fetcher.data>(undefined);
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (navigation.state === "idle") revalidator.revalidate();
+      if (fetcher.state === "idle" && revalidator.state === "idle") {
+        revalidator.revalidate();
+      }
     }, 4000);
     return () => clearInterval(id);
-  }, [navigation.state, revalidator]);
+  }, [fetcher.state, revalidator]);
+
+  useEffect(() => {
+    if (fetcher.state !== "idle") return;
+    const data = fetcher.data;
+    if (!data || data === lastFetcherDataRef.current) return;
+    lastFetcherDataRef.current = data;
+    if ("ok" in data) {
+      atBottomRef.current = true;
+    } else if ("error" in data && data.error) {
+      const msg = ERROR_MESSAGES[data.error] || "发送失败";
+      shopify.toast.show(msg, { isError: true });
+    }
+  }, [fetcher.state, fetcher.data, shopify]);
 
   const onDraftChange = useCallback((v: string) => setDraft(v), []);
+
+  const handleSend = useCallback(() => {
+    const body = draft.trim();
+    if (!body.length) return;
+    if (busy) return;
+    setDraft("");
+    atBottomRef.current = true;
+    fetcher.submit({ body }, { method: "post" });
+  }, [draft, busy, fetcher]);
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName !== "TEXTAREA" && target.tagName !== "INPUT") return;
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend],
+  );
+
+  const onListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    atBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  }, []);
+
+  const msgs = conversation.messages;
+  const sig =
+    msgs.length +
+    "|" +
+    (msgs.length ? msgs[msgs.length - 1].id : "") +
+    "|" +
+    (msgs.length ? msgs[msgs.length - 1].createdAt : "");
+
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    if (lastSigRef.current === sig) return;
+    const firstRender = lastSigRef.current === "";
+    lastSigRef.current = sig;
+    if (firstRender || atBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [sig]);
 
   return (
     <Page
@@ -127,52 +207,77 @@ export default function ConversationDetail() {
       <TitleBar title="会话详情" />
       <BlockStack gap="400">
         <Card>
-          <BlockStack gap="300">
-            {conversation.messages.length === 0 ? (
-              <Text as="p" variant="bodyMd" tone="subdued">
-                暂无消息
-              </Text>
-            ) : (
-              conversation.messages.map((m) => (
-                <Box
-                  key={m.id}
-                  padding="200"
-                  background={
-                    m.sender === "STAFF" ? "bg-surface-secondary" : undefined
-                  }
-                  borderRadius="200"
-                >
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    {m.sender === "STAFF" ? "客服" : "访客"} ·{" "}
-                    {new Date(m.createdAt).toLocaleString()}
-                  </Text>
-                  <Text as="p" variant="bodyMd">
-                    {m.body}
-                  </Text>
-                </Box>
-              ))
-            )}
-          </BlockStack>
+          <div
+            ref={listRef}
+            onScroll={onListScroll}
+            style={{
+              maxHeight: "55vh",
+              overflowY: "auto",
+              overscrollBehavior: "contain",
+            }}
+          >
+            <BlockStack gap="300">
+              {msgs.length === 0 ? (
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  暂无消息
+                </Text>
+              ) : (
+                msgs.map((m) => (
+                  <Box
+                    key={m.id}
+                    padding="200"
+                    background={
+                      m.sender === "STAFF" ? "bg-surface-secondary" : undefined
+                    }
+                    borderRadius="200"
+                  >
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      {m.sender === "STAFF" ? "客服" : "访客"} ·{" "}
+                      {new Date(m.createdAt).toLocaleString()}
+                    </Text>
+                    <Text as="p" variant="bodyMd">
+                      {m.body}
+                    </Text>
+                  </Box>
+                ))
+              )}
+            </BlockStack>
+          </div>
         </Card>
-        <Card>
-          <Form method="post">
+        <div
+          style={{
+            position: "sticky",
+            bottom: 0,
+            zIndex: 1,
+            background: "var(--p-color-bg, #f1f1f1)",
+            paddingBlock: "8px",
+          }}
+          onKeyDown={onKeyDown}
+        >
+          <Card>
             <BlockStack gap="300">
               <TextField
                 label="回复"
-                name="body"
                 value={draft}
                 onChange={onDraftChange}
                 multiline={4}
                 autoComplete="off"
+                disabled={busy}
+                helpText="Ctrl/Cmd + Enter 快速发送"
               />
               <InlineStack>
-                <Button submit variant="primary" loading={busy} disabled={busy}>
+                <Button
+                  onClick={handleSend}
+                  variant="primary"
+                  loading={busy}
+                  disabled={busy || !draft.trim().length}
+                >
                   发送回复
                 </Button>
               </InlineStack>
             </BlockStack>
-          </Form>
-        </Card>
+          </Card>
+        </div>
       </BlockStack>
     </Page>
   );
