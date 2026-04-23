@@ -7,8 +7,10 @@ import {
   listMessagesForConversation,
 } from "../models/chat.server";
 import { authenticate } from "../shopify.server";
+import { openclawChatComplete } from "../services/openclaw.server";
 
 const MAX_BODY = 2000;
+const AI_MAX_OUTPUT = 2000;
 
 function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, {
@@ -93,6 +95,27 @@ export const action = async ({
 
   const conversation = await getOrCreateConversation(shop, visitorId);
   await appendMessage(conversation.id, "VISITOR", text);
+
+  // 先取一次消息历史，用于 AI 生成（若配置了 OpenClaw）。
+  const beforeAi = await listMessagesForConversation(conversation.id);
+  const aiReply = await openclawChatComplete([
+    {
+      role: "system",
+      content:
+        "你是店铺在线客服。用简体中文简洁、礼貌地回答访客问题。若信息不足，先提出1-2个澄清问题。不要编造订单/物流等具体数据。",
+    },
+    ...beforeAi.slice(-30).map((m) => ({
+      role: m.sender === "VISITOR" ? ("user" as const) : ("assistant" as const),
+      content: m.body,
+    })),
+  ]);
+
+  if (aiReply) {
+    const trimmed = aiReply.slice(0, AI_MAX_OUTPUT).trim();
+    if (trimmed.length) {
+      await appendMessage(conversation.id, "STAFF", trimmed);
+    }
+  }
 
   const messages = await listMessagesForConversation(conversation.id);
 
