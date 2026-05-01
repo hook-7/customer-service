@@ -4,3 +4,7 @@ args = ["-y", "@shopify/dev-mcp@latest"]
 
 [mcp_servers.shopify-dev-mcp.env]
 OPT_OUT_INSTRUMENTATION = "true"
+
+[mcp_servers.dbhub]
+command = "npx.cmd"
+args = ["-y", "@bytebase/dbhub@0.21.2", "--transport", "stdio", "--dsn", "postgresql://shopify:shopify@127.0.0.1:5432/shopify"]
