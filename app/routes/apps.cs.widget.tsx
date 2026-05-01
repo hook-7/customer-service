@@ -91,6 +91,11 @@ const widgetScript = String.raw`
     return prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
   }
 
+  function afterTime(value) {
+    var ms = Date.parse(value || "");
+    return new Date((Number.isFinite(ms) ? ms : Date.now()) + 1).toISOString();
+  }
+
   function messageKey(message) {
     return message && (message.clientMessageId || message.id);
   }
@@ -425,10 +430,16 @@ const widgetScript = String.raw`
       return poll();
     }
 
-    function ensureAssistantPlaceholder(requestId) {
+    function ensureAssistantPlaceholder(requestId, afterCreatedAt) {
       var key = "ai-" + requestId;
-      var updated = updateMessage(state.messages, key, function () {});
-      if (updated.found) return;
+      var createdAt = afterCreatedAt ? afterTime(afterCreatedAt) : new Date(Date.now() + 1).toISOString();
+      var updated = updateMessage(state.messages, key, function (message) {
+        if (afterCreatedAt) message.createdAt = createdAt;
+      });
+      if (updated.found) {
+        state.messages = updated.messages;
+        return;
+      }
       state.messages = mergeMessages(state.messages, [
         {
           id: key,
@@ -438,7 +449,7 @@ const widgetScript = String.raw`
           body: "",
           metadata: null,
           state: "streaming",
-          createdAt: new Date(Date.now() + 1).toISOString(),
+          createdAt: createdAt,
         },
       ]);
     }
@@ -464,7 +475,7 @@ const widgetScript = String.raw`
         requestState.aiEnabled = event.aiEnabled === true;
         state.error = false;
         state.messages = mergeMessages(state.messages, [event.message]);
-        if (requestState.aiEnabled) ensureAssistantPlaceholder(requestId);
+        if (requestState.aiEnabled) ensureAssistantPlaceholder(requestId, event.message.createdAt);
         else clearAssistantPlaceholder(requestId, []);
         render(M, state.messages, false, true);
       } else if (event.type === "assistant_delta" && event.text) {
