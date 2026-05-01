@@ -2,6 +2,7 @@ import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import {
+  Badge,
   BlockStack,
   Box,
   Card,
@@ -29,8 +30,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     conversations: conversations.map((c) => ({
       id: c.id,
       visitorId: c.visitorId,
+      aiEnabled: c.aiEnabled,
       updatedAt: c.updatedAt.toISOString(),
       preview: c.messages[0]?.body ?? "",
+      sender: c.messages[0]?.sender ?? null,
     })),
   };
 };
@@ -39,7 +42,7 @@ export default function ConversationsIndex() {
   const { conversations } = useLoaderData<typeof loader>();
 
   return (
-    <Page>
+    <Page title="客服会话">
       <TitleBar title="客服会话" />
       <BlockStack gap="400">
         {conversations.length === 0 ? (
@@ -47,10 +50,10 @@ export default function ConversationsIndex() {
             <Box padding="600">
               <BlockStack gap="200">
                 <Text as="h2" variant="headingMd">
-                  暂无访客会话
+                  还没有会话
                 </Text>
                 <Text as="p" variant="bodyMd" tone="subdued">
-                  在主题编辑器中启用「在线客服」应用嵌入后，访客消息会显示在这里。
+                  顾客在店铺聊天框发送消息后，会话会显示在这里。
                 </Text>
               </BlockStack>
             </Box>
@@ -60,14 +63,19 @@ export default function ConversationsIndex() {
             <Card key={c.id}>
               <InlineStack align="space-between" blockAlign="center">
                 <BlockStack gap="100">
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    访客 {c.visitorId.slice(0, 8)}…
+                  <InlineStack gap="200" blockAlign="center">
+                    <Text as="p" variant="bodyMd" fontWeight="semibold">
+                      访客 {c.visitorId.slice(0, 8)}
+                    </Text>
+                    <Badge tone={c.aiEnabled ? "success" : "critical"}>
+                      AI {c.aiEnabled ? "开启" : "关闭"}
+                    </Badge>
+                  </InlineStack>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    {c.preview || "暂无消息"}
                   </Text>
                   <Text as="p" variant="bodySm" tone="subdued">
-                    {c.preview || "（无消息）"}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    更新于 {new Date(c.updatedAt).toLocaleString()}
+                    最近更新：{new Date(c.updatedAt).toLocaleString()}
                   </Text>
                 </BlockStack>
                 <Box>

@@ -12,10 +12,12 @@ import {
 } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import {
+  Badge,
   BlockStack,
   Box,
   Button,
   Card,
+  InlineGrid,
   InlineStack,
   Page,
   Text,
@@ -30,9 +32,12 @@ import {
   useState,
 } from "react";
 
+import type { ProductRecommendationMetadata } from "../models/chat.server";
 import {
   appendMessage,
   getConversationForShop,
+  serializeMessage,
+  setConversationAiEnabled,
 } from "../models/chat.server";
 import { authenticate } from "../shopify.server";
 
@@ -43,77 +48,115 @@ export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
 
-export const loader = async ({
-  request,
-  params,
-}: LoaderFunctionArgs) => {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const conversationId = params.conversationId;
-  if (!conversationId) {
-    throw redirect("/app/conversations");
-  }
+  if (!conversationId) throw redirect("/app/conversations");
 
-  const conversation = await getConversationForShop(
-    session.shop,
-    conversationId,
-  );
-
-  if (!conversation) {
-    throw redirect("/app/conversations");
-  }
+  const conversation = await getConversationForShop(session.shop, conversationId);
+  if (!conversation) throw redirect("/app/conversations");
 
   return {
     conversation: {
       id: conversation.id,
       visitorId: conversation.visitorId,
-      messages: conversation.messages.map((m) => ({
-        id: m.id,
-        sender: m.sender,
-        body: m.body,
-        createdAt: m.createdAt.toISOString(),
-      })),
+      aiEnabled: conversation.aiEnabled,
+      messages: conversation.messages.map(serializeMessage),
     },
   };
 };
 
-export const action = async ({
-  request,
-  params,
-}: ActionFunctionArgs) => {
+export const action = async ({ request, params }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const conversationId = params.conversationId;
-  if (!conversationId) {
-    return { error: "missing_id" };
-  }
+  if (!conversationId) return { error: "missing_id" };
 
-  const conversation = await getConversationForShop(
-    session.shop,
-    conversationId,
-  );
-  if (!conversation) {
-    return { error: "not_found" };
-  }
+  const conversation = await getConversationForShop(session.shop, conversationId);
+  if (!conversation) return { error: "not_found" };
 
   const formData = await request.formData();
+  const intent = formData.get("intent")?.toString() || "send";
+
+  if (intent === "toggle_ai") {
+    const enabled = formData.get("aiEnabled") === "true";
+    await setConversationAiEnabled(session.shop, conversation.id, enabled);
+    return { ok: true as const };
+  }
+
   const body = formData.get("body")?.toString().trim() ?? "";
-  if (!body.length) {
-    return { error: "empty" };
-  }
-  if (body.length > 2000) {
-    return { error: "too_long" };
-  }
+  if (!body.length) return { error: "empty" };
+  if (body.length > 2000) return { error: "too_long" };
 
   await appendMessage(conversation.id, "STAFF", body);
-
   return { ok: true as const };
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  empty: "回复不能为空",
-  too_long: "回复超过 2000 字符",
-  missing_id: "会话 ID 缺失",
-  not_found: "会话不存在",
+  empty: "请输入回复内容。",
+  too_long: "回复内容不能超过 2000 字。",
+  missing_id: "会话 ID 缺失。",
+  not_found: "会话不存在。",
 };
+
+function senderLabel(sender: string) {
+  if (sender === "VISITOR") return "访客";
+  if (sender === "AI") return "AI 客服";
+  return "人工客服";
+}
+
+function ProductCards({ metadata }: { metadata: unknown }) {
+  const data =
+    metadata && typeof metadata === "object"
+      ? (metadata as ProductRecommendationMetadata)
+      : null;
+  const products = data?.products || [];
+
+  if (!products.length) return null;
+
+  return (
+    <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="300">
+      {products.map((product) => (
+        <Box
+          key={product.productGid}
+          padding="300"
+          borderRadius="200"
+          background="bg-surface-secondary"
+        >
+          <BlockStack gap="200">
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.title}
+                style={{
+                  width: "100%",
+                  aspectRatio: "4 / 3",
+                  objectFit: "cover",
+                  borderRadius: 6,
+                }}
+              />
+            ) : null}
+            <Text as="h3" variant="headingSm">
+              {product.title}
+            </Text>
+            {product.price ? (
+              <Text as="p" variant="bodySm" tone="subdued">
+                {product.price} {product.currencyCode || ""}
+              </Text>
+            ) : null}
+            {product.reason ? (
+              <Text as="p" variant="bodySm">
+                {product.reason}
+              </Text>
+            ) : null}
+            <Badge tone={product.available ? "success" : "critical"}>
+              {product.available ? "可加购" : "不可售"}
+            </Badge>
+          </BlockStack>
+        </Box>
+      ))}
+    </InlineGrid>
+  );
+}
 
 export default function ConversationDetail() {
   const { conversation } = useLoaderData<typeof loader>();
@@ -144,22 +187,31 @@ export default function ConversationDetail() {
     lastFetcherDataRef.current = data;
     if ("ok" in data) {
       atBottomRef.current = true;
+      revalidator.revalidate();
     } else if ("error" in data && data.error) {
-      const msg = ERROR_MESSAGES[data.error] || "发送失败";
-      shopify.toast.show(msg, { isError: true });
+      shopify.toast.show(ERROR_MESSAGES[data.error] || "操作失败。", {
+        isError: true,
+      });
     }
-  }, [fetcher.state, fetcher.data, shopify]);
-
-  const onDraftChange = useCallback((v: string) => setDraft(v), []);
+  }, [fetcher.state, fetcher.data, shopify, revalidator]);
 
   const handleSend = useCallback(() => {
     const body = draft.trim();
-    if (!body.length) return;
-    if (busy) return;
+    if (!body.length || busy) return;
     setDraft("");
     atBottomRef.current = true;
-    fetcher.submit({ body }, { method: "post" });
+    fetcher.submit({ body, intent: "send" }, { method: "post" });
   }, [draft, busy, fetcher]);
+
+  const toggleAi = useCallback(() => {
+    fetcher.submit(
+      {
+        intent: "toggle_ai",
+        aiEnabled: String(!conversation.aiEnabled),
+      },
+      { method: "post" },
+    );
+  }, [conversation.aiEnabled, fetcher]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -173,13 +225,6 @@ export default function ConversationDetail() {
     [handleSend],
   );
 
-  const onListScroll = useCallback(() => {
-    const el = listRef.current;
-    if (!el) return;
-    atBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  }, []);
-
   const msgs = conversation.messages;
   const sig =
     msgs.length +
@@ -190,60 +235,85 @@ export default function ConversationDetail() {
 
   useLayoutEffect(() => {
     const el = listRef.current;
-    if (!el) return;
-    if (lastSigRef.current === sig) return;
+    if (!el || lastSigRef.current === sig) return;
     const firstRender = lastSigRef.current === "";
     lastSigRef.current = sig;
-    if (firstRender || atBottomRef.current) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (firstRender || atBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [sig]);
 
   return (
     <Page
       backAction={{ content: "会话列表", url: "/app/conversations" }}
-      title={`访客 ${conversation.visitorId.slice(0, 8)}…`}
+      title={`访客 ${conversation.visitorId.slice(0, 8)}`}
+      primaryAction={{
+        content: conversation.aiEnabled ? "关闭 AI" : "开启 AI",
+        onAction: toggleAi,
+        loading: busy,
+      }}
     >
-      <TitleBar title="会话详情" />
+      <TitleBar title="客服会话" />
       <BlockStack gap="400">
+        <Card>
+          <InlineStack align="space-between" blockAlign="center">
+            <Text as="p" variant="bodyMd">
+              AI 自动回复当前为
+            </Text>
+            <Badge tone={conversation.aiEnabled ? "success" : "critical"}>
+              {conversation.aiEnabled ? "已开启" : "已关闭"}
+            </Badge>
+          </InlineStack>
+        </Card>
+
         <Card>
           <div
             ref={listRef}
-            onScroll={onListScroll}
             style={{
               maxHeight: "55vh",
               overflowY: "auto",
               overscrollBehavior: "contain",
             }}
+            onScroll={() => {
+              const el = listRef.current;
+              if (!el) return;
+              atBottomRef.current =
+                el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+            }}
           >
             <BlockStack gap="300">
               {msgs.length === 0 ? (
                 <Text as="p" variant="bodyMd" tone="subdued">
-                  暂无消息
+                  还没有消息。
                 </Text>
               ) : (
                 msgs.map((m) => (
                   <Box
                     key={m.id}
-                    padding="200"
+                    padding="300"
                     background={
-                      m.sender === "STAFF" ? "bg-surface-secondary" : undefined
+                      m.sender === "VISITOR" ? undefined : "bg-surface-secondary"
                     }
                     borderRadius="200"
                   >
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      {m.sender === "STAFF" ? "客服" : "访客"} ·{" "}
-                      {new Date(m.createdAt).toLocaleString()}
-                    </Text>
-                    <Text as="p" variant="bodyMd">
-                      {m.body}
-                    </Text>
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        {senderLabel(m.sender)} ·{" "}
+                        {new Date(m.createdAt).toLocaleString()}
+                      </Text>
+                      {m.kind === "PRODUCT_RECOMMENDATION" ? (
+                        <ProductCards metadata={m.metadata} />
+                      ) : (
+                        <Text as="p" variant="bodyMd">
+                          {m.body}
+                        </Text>
+                      )}
+                    </BlockStack>
                   </Box>
                 ))
               )}
             </BlockStack>
           </div>
         </Card>
+
         <div
           style={{
             position: "sticky",
@@ -257,13 +327,13 @@ export default function ConversationDetail() {
           <Card>
             <BlockStack gap="300">
               <TextField
-                label="回复"
+                label="人工回复"
                 value={draft}
-                onChange={onDraftChange}
+                onChange={setDraft}
                 multiline={4}
                 autoComplete="off"
                 disabled={busy}
-                helpText="Ctrl/Cmd + Enter 快速发送"
+                helpText="Ctrl/Cmd + Enter 发送。人工回复不会关闭 AI，可用右上角按钮单独关闭。"
               />
               <InlineStack>
                 <Button

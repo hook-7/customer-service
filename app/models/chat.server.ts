@@ -1,7 +1,23 @@
 import prisma from "../db.server";
 
 /** Prisma enum values; avoid runtime imports from `@prisma/client` (Vite SSR / CJS). */
-export type ChatSender = "VISITOR" | "STAFF";
+export type ChatSender = "VISITOR" | "STAFF" | "AI";
+export type ChatMessageKind = "TEXT" | "PRODUCT_RECOMMENDATION";
+
+export type ProductRecommendationMetadata = {
+  products: Array<{
+    productGid: string;
+    title: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    productUrl?: string | null;
+    variantGid?: string | null;
+    price?: string | null;
+    currencyCode?: string | null;
+    reason?: string | null;
+    available: boolean;
+  }>;
+};
 
 /** Matches UUID v4 from `crypto.randomUUID()`. */
 const UUID_RE =
@@ -21,6 +37,17 @@ export async function getOrCreateConversation(shop: string, visitorId: string) {
   });
 }
 
+export async function setConversationAiEnabled(
+  shop: string,
+  conversationId: string,
+  aiEnabled: boolean,
+) {
+  return prisma.conversation.updateMany({
+    where: { id: conversationId, shop },
+    data: { aiEnabled },
+  });
+}
+
 export async function listMessagesForConversation(
   conversationId: string,
   take = 200,
@@ -36,16 +63,51 @@ export async function appendMessage(
   conversationId: string,
   sender: ChatSender,
   body: string,
+  kind: ChatMessageKind = "TEXT",
+  metadata?: unknown,
 ) {
   await prisma.$transaction([
     prisma.message.create({
-      data: { conversationId, sender, body },
+      data: {
+        conversationId,
+        sender,
+        body,
+        kind,
+        metadata: metadata ? JSON.stringify(metadata) : undefined,
+      },
     }),
     prisma.conversation.update({
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     }),
   ]);
+}
+
+export function parseMessageMetadata<T>(metadata: string | null): T | null {
+  if (!metadata) return null;
+  try {
+    return JSON.parse(metadata) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function serializeMessage(m: {
+  id: string;
+  sender: ChatSender;
+  kind: ChatMessageKind;
+  body: string;
+  metadata: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: m.id,
+    sender: m.sender,
+    kind: m.kind,
+    body: m.body,
+    metadata: parseMessageMetadata(m.metadata),
+    createdAt: m.createdAt.toISOString(),
+  };
 }
 
 export async function listConversationsForShop(shop: string) {

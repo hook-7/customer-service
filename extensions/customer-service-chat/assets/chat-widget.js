@@ -1,284 +1,436 @@
 (function () {
-  var K = "customer-service-chat-visitor",
-    P = 3500,
-    U = "/apps/cs/conversation/",
-    I =
-      '<svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M20 2H4a2 2 0 00-2 2v16l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>';
-  function vid() {
+  var VISITOR_KEY = "customer-service-chat-visitor";
+  var POLL_MS = 3500;
+  var API_ROOT = "/apps/cs/conversation/";
+  var ICON =
+    '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 2H4a2 2 0 0 0-2 2v16l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>';
+
+  function visitorId() {
     try {
-      var e = localStorage.getItem(K);
-      if (e) return e;
+      var existing = localStorage.getItem(VISITOR_KEY);
+      if (existing) return existing;
       var id = crypto.randomUUID();
-      localStorage.setItem(K, id);
+      localStorage.setItem(VISITOR_KEY, id);
       return id;
-    } catch (t) {
+    } catch (error) {
       return null;
     }
   }
-  function url(v) {
-    return U + encodeURIComponent(v);
+
+  function endpoint(id, stream) {
+    return API_ROOT + encodeURIComponent(id) + (stream ? "?stream=1" : "");
   }
+
   function root() {
-    var e = document.getElementById("customer-service-chat-root");
-    if (!e) {
-      e = document.createElement("div");
-      e.id = "customer-service-chat-root";
-      document.body.appendChild(e);
+    var el = document.getElementById("customer-service-chat-root");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "customer-service-chat-root";
+      document.body.appendChild(el);
     }
-    return e;
+    return el;
   }
+
   function css() {
     if (document.getElementById("customer-service-chat-styles")) return;
-    var e = document.createElement("style");
-    e.id = "customer-service-chat-styles";
-    e.textContent =
-      "#customer-service-chat-root{font-family:system-ui,sans-serif}" +
-      ".w{position:fixed;z-index:2147483000;bottom:22px;right:22px}" +
-      ".L{position:absolute;bottom:0;right:0;width:56px;height:56px;border:0;border-radius:50%;cursor:pointer;background:#0a0a0a;color:#fff;box-shadow:0 6px 20px #0002;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}.L:focus{outline:0}.L:focus-visible{outline:0;box-shadow:0 6px 20px #0002,0 0 0 3px #0a0a0a33}" +
-      ".b{position:absolute;top:4px;right:4px;width:9px;height:9px;background:#ef4444;border-radius:50%;display:none}.b.on{display:block}" +
-      ".p{position:absolute;bottom:72px;right:0;width:min(380px,calc(100vw - 32px));height:min(560px,calc(100vh - 96px));display:flex;flex-direction:column;background:#fff;border-radius:18px;overflow:hidden;border:1px solid #ececec;box-shadow:0 20px 50px -12px #0003;opacity:0;transform:translateY(8px) scale(.98);transition:.22s;visibility:hidden}.w.o .p{opacity:1;transform:none;visibility:visible}" +
-      ".h{padding:16px;border-bottom:1px solid #f0f0f0}" +
-      ".hr{display:flex;justify-content:space-between;align-items:center;gap:8px}" +
-      ".ti{display:flex;align-items:center;gap:10px}" +
-      ".av{width:36px;height:36px;border-radius:50%;background:#0a0a0a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;position:relative}" +
-      ".av::after{content:'';position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;background:#10b981;border-radius:50%;border:2px solid #fff}" +
-      ".t{font-size:15px;font-weight:600;color:#0a0a0a}.s{font-size:12px;color:#737373;margin-top:2px}" +
-      ".x{background:0;border:0;border-radius:8px;width:30px;height:30px;color:#525252;font-size:20px;cursor:pointer;-webkit-tap-highlight-color:transparent}.x:hover{background:#f5f5f5}.x:focus{outline:0}.x:focus-visible{outline:0;box-shadow:0 0 0 3px #0a0a0a1f}" +
-      ".c{flex:1;overflow-y:auto;padding:16px 14px;background:#fafafa}" +
-      ".r{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:10px}.rv{align-items:flex-end}" +
-      ".m{max-width:78%;padding:10px 14px;font-size:14px;line-height:1.5;word-break:break-word}" +
-      ".mv{background:#0a0a0a;color:#fafafa;border-radius:18px 18px 4px 18px}" +
-      ".ms{background:#fff;color:#171717;border:1px solid #ececec;border-radius:18px 18px 18px 4px}" +
-      ".n{font-size:10px;margin-top:4px;padding:0 4px;color:#a3a3a3}" +
-      ".f{padding:10px 12px 12px;border-top:1px solid #f0f0f0}" +
-      ".i{display:flex;align-items:center;gap:6px;background:#f5f5f5;border:1px solid transparent;border-radius:999px;padding:3px 3px 3px 14px}.i:focus-within{background:#fff;border-color:#d4d4d4;box-shadow:0 0 0 3px #0a0a0a0f}" +
-      "#customer-service-chat-root input.ipt,#customer-service-chat-root input.ipt:focus,#customer-service-chat-root input.ipt:focus-visible,#customer-service-chat-root input.ipt:active,#customer-service-chat-root input.ipt:hover{flex:1!important;border:0!important;background:transparent!important;font-size:14px!important;outline:0!important;box-shadow:none!important;padding:8px 0!important;min-width:0!important;color:#0a0a0a!important;border-radius:0!important;margin:0!important;-webkit-appearance:none!important;appearance:none!important}#customer-service-chat-root input.ipt::placeholder{color:#a3a3a3!important}" +
-      ".z{width:36px;height:36px;border:0;border-radius:50%;background:#0a0a0a;color:#fff;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}.z:focus{outline:0}.z:focus-visible{outline:0;box-shadow:0 0 0 3px #0a0a0a33}" +
-      ".ce{text-align:center;padding:32px 14px;font-size:13px;color:#737373;line-height:1.6}.er{color:#dc2626;font-size:12px;margin-top:10px}";
-    document.head.appendChild(e);
+    var el = document.createElement("style");
+    el.id = "customer-service-chat-styles";
+    el.textContent =
+      "#customer-service-chat-root{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}" +
+      ".csw{position:fixed;z-index:2147483000;right:22px;bottom:22px}" +
+      ".csl{position:absolute;right:0;bottom:0;width:56px;height:56px;border:0;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 28px #0003}" +
+      ".csb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:#dc2626;display:none}.csb.on{display:block}" +
+      ".csp{position:absolute;right:0;bottom:72px;width:min(390px,calc(100vw - 32px));height:min(590px,calc(100vh - 96px));background:#fff;border:1px solid #e5e5e5;border-radius:18px;box-shadow:0 22px 60px #0003;display:flex;flex-direction:column;overflow:hidden;opacity:0;visibility:hidden;transform:translateY(8px) scale(.98);transition:.2s}.csw.open .csp{opacity:1;visibility:visible;transform:none}" +
+      ".csh{padding:16px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;gap:12px}.cst{font-size:15px;font-weight:700;color:#111}.css{font-size:12px;color:#737373;margin-top:2px}.csx{width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#525252;font-size:20px;cursor:pointer}.csx:hover{background:#f5f5f5}" +
+      ".csm{flex:1;overflow-y:auto;background:#fafafa;padding:14px}.csr{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 12px}.csr.visitor{align-items:flex-end}.msg{max-width:82%;font-size:14px;line-height:1.45;padding:10px 13px;word-break:break-word;white-space:pre-wrap}.visitor .msg{background:#111;color:#fff;border-radius:18px 18px 4px 18px}.agent .msg{background:#fff;color:#171717;border:1px solid #e5e5e5;border-radius:18px 18px 18px 4px}.meta{font-size:10px;color:#999;margin-top:4px;padding:0 4px}" +
+      ".cards{display:grid;gap:10px;width:100%;margin:2px 0 12px}.pc{background:#fff;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden}.pc img{width:100%;aspect-ratio:4/3;object-fit:cover;background:#f4f4f5}.pcb{padding:11px}.pct{font-weight:700;font-size:14px;color:#111;margin-bottom:4px}.pcp{font-size:13px;color:#525252;margin-bottom:7px}.pcr{font-size:12px;color:#404040;margin-bottom:8px}.pca{display:flex;gap:8px;align-items:center}.add,.view{height:34px;border-radius:8px;border:0;padding:0 11px;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}.add{background:#111;color:#fff}.add[disabled]{background:#a3a3a3;cursor:not-allowed}.view{background:#f4f4f5;color:#111}" +
+      ".csf{padding:10px 12px 12px;border-top:1px solid #eee}.csi{display:flex;gap:6px;align-items:center;background:#f5f5f5;border-radius:999px;padding:4px 4px 4px 14px}.ipt{flex:1!important;border:0!important;background:transparent!important;outline:0!important;box-shadow:none!important;min-width:0!important;font-size:14px!important;padding:8px 0!important}.send{width:36px;height:36px;border:0;border-radius:50%;background:#111;color:#fff;cursor:pointer}.send[disabled]{background:#a3a3a3}.empty{text-align:center;color:#737373;font-size:13px;line-height:1.5;padding:32px 14px}.err{color:#dc2626;font-size:12px;text-align:center;margin-top:8px}";
+    document.head.appendChild(el);
   }
-  function esc(s) {
-    return String(s)
+
+  function esc(value) {
+    return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
-  function tim(i) {
+
+  function time(value) {
     try {
-      return new Date(i).toLocaleTimeString([], {
+      return new Date(value).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
-    } catch (e) {
+    } catch (error) {
       return "";
     }
   }
-  function sig(msgs, showErr) {
-    var n = (msgs && msgs.length) || 0;
-    var last = n ? msgs[n - 1] : null;
-    return n + "|" + (last ? (last.id || "") + ":" + (last.createdAt || "") : "") + "|" + (showErr ? 1 : 0);
+
+  function numericVariantId(gid) {
+    if (!gid) return "";
+    var parts = String(gid).split("/");
+    return parts[parts.length - 1] || "";
   }
-  function ren(el, msgs, showErr, force) {
-    var ns = sig(msgs, showErr);
-    if (!force && el.dataset.sig === ns) return;
-    var atBottom = force || (el.scrollHeight - el.scrollTop - el.clientHeight < 40);
-    var h = (msgs || [])
-      .map(function (m) {
-        var staff = m.sender === "STAFF",
-          rc = staff ? "r rs" : "r rv",
-          bc = staff ? "m ms" : "m mv",
-          lb = staff ? "客服" : "你";
-        return (
-          '<div class="' +
-          rc +
-          '"><div class="' +
-          bc +
-          '">' +
-          esc(m.body) +
-          '</div><div class="n">' +
-          lb +
-          " · " +
-          tim(m.createdAt) +
-          "</div></div>"
-        );
-      })
-      .join("");
-    if (!h) {
-      h = '<div class="ce">有什么可以帮你的吗？<br>留言后我们尽快回复</div>';
-      if (showErr) h += '<p class="er">连接失败</p>';
+
+  function signature(messages, showError) {
+    var count = (messages && messages.length) || 0;
+    var last = count ? messages[count - 1] : null;
+    return count + "|" + (last ? last.id + ":" + last.createdAt + ":" + last.body : "") + "|" + (showError ? 1 : 0);
+  }
+
+  function productCards(message) {
+    var products =
+      message &&
+      message.metadata &&
+      message.metadata.products &&
+      message.metadata.products.length
+        ? message.metadata.products
+        : [];
+    if (!products.length) return "";
+
+    return (
+      '<div class="cards">' +
+      products
+        .map(function (p) {
+          var variantId = numericVariantId(p.variantGid);
+          var price = p.price ? esc(p.price + (p.currencyCode ? " " + p.currencyCode : "")) : "";
+          var add = p.available && variantId
+            ? '<button class="add" data-variant="' + esc(variantId) + '">Add to cart</button>'
+            : '<button class="add" disabled>Unavailable</button>';
+          var view = p.productUrl
+            ? '<a class="view" href="' + esc(p.productUrl) + '">View</a>'
+            : "";
+          return (
+            '<div class="pc">' +
+            (p.imageUrl ? '<img src="' + esc(p.imageUrl) + '" alt="' + esc(p.title) + '">' : "") +
+            '<div class="pcb"><div class="pct">' +
+            esc(p.title) +
+            '</div>' +
+            (price ? '<div class="pcp">' + price + "</div>" : "") +
+            (p.reason ? '<div class="pcr">' + esc(p.reason) + "</div>" : "") +
+            '<div class="pca">' +
+            add +
+            view +
+            "</div></div></div>"
+          );
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
+  function renderMessage(message) {
+    if (message.kind === "PRODUCT_RECOMMENDATION") {
+      return productCards(message);
     }
-    el.innerHTML = h;
-    el.dataset.sig = ns;
+
+    var visitor = message.sender === "VISITOR";
+    return (
+      '<div class="csr ' +
+      (visitor ? "visitor" : "agent") +
+      '"><div class="msg">' +
+      esc(message.body || (message.streaming ? "..." : "")) +
+      '</div><div class="meta">' +
+      (visitor ? "You" : "AI support") +
+      " · " +
+      (message.streaming ? "typing" : time(message.createdAt)) +
+      "</div></div>"
+    );
+  }
+
+  function render(el, messages, showError, force) {
+    var sig = signature(messages, showError);
+    if (!force && el.dataset.sig === sig) return;
+
+    var atBottom = force || el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    var html = (messages || []).map(renderMessage).join("");
+    if (!html) html = '<div class="empty">Hi, I am your AI product assistant. Ask me about products or recommendations.</div>';
+    if (showError) html += '<div class="err">Support connection failed. Please try again.</div>';
+
+    el.innerHTML = html;
+    el.dataset.sig = sig;
     if (atBottom) el.scrollTop = el.scrollHeight;
   }
-  function max(msgs) {
-    var x = "";
-    (msgs || []).forEach(function (m) {
-      if (m.createdAt > x) x = m.createdAt;
+
+  function latestStaffTime(messages) {
+    var value = "";
+    (messages || []).forEach(function (message) {
+      if (message.sender !== "VISITOR" && message.createdAt > value) value = message.createdAt;
     });
-    return x;
+    return value;
   }
-  function unr(msgs, w) {
-    if (!msgs || !msgs.length) return false;
-    w = w || "";
-    for (var i = 0; i < msgs.length; i++)
-      if (msgs[i].sender === "STAFF" && msgs[i].createdAt > w) return true;
-    return false;
+
+  function hasUnread(messages, watermark) {
+    watermark = watermark || "";
+    return (messages || []).some(function (message) {
+      return message.sender !== "VISITOR" && message.createdAt > watermark;
+    });
   }
-  function mg(localMsgs, serverMsgs, optimisticId, optimisticBody) {
-    localMsgs = (localMsgs || []).filter(function (x) { return x && x.id != optimisticId; });
+
+  function mergeMessages(localMessages, serverMessages, optimisticId) {
+    localMessages = (localMessages || []).filter(function (message) {
+      return message && message.id !== optimisticId && message.id !== "streaming-ai";
+    });
     var byId = {};
-    for (var i = 0; i < localMsgs.length; i++) {
-      if (localMsgs[i] && localMsgs[i].id) byId[localMsgs[i].id] = 1;
-    }
-    var picked = null;
-    for (var j = 0; j < (serverMsgs || []).length; j++) {
-      var sm = serverMsgs[j];
-      if (!sm || !sm.id) continue;
-      if (!byId[sm.id] && sm.sender === "VISITOR" && sm.body === optimisticBody) {
-        picked = sm;
-        break;
-      }
-    }
-    if (picked) localMsgs = localMsgs.concat([picked]);
-    for (var k = 0; k < (serverMsgs || []).length; k++) {
-      var m = serverMsgs[k];
-      if (!m || !m.id || byId[m.id]) continue;
-      if (picked && m.id === picked.id) continue;
-      localMsgs = localMsgs.concat([m]);
-      byId[m.id] = 1;
-    }
-    localMsgs.sort(function (a, b) {
-      var ac = (a && a.createdAt) || "";
-      var bc = (b && b.createdAt) || "";
-      if (ac < bc) return -1;
-      if (ac > bc) return 1;
-      return 0;
+    localMessages.forEach(function (message) {
+      if (message && message.id) byId[message.id] = true;
     });
-    return localMsgs;
+    (serverMessages || []).forEach(function (message) {
+      if (!message || !message.id || byId[message.id]) return;
+      localMessages.push(message);
+      byId[message.id] = true;
+    });
+    localMessages.sort(function (a, b) {
+      return String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
+    });
+    return localMessages;
   }
+
+  function updateMessage(messages, id, updater) {
+    return messages.map(function (message) {
+      if (message.id !== id) return message;
+      var copy = {};
+      Object.keys(message).forEach(function (key) {
+        copy[key] = message[key];
+      });
+      updater(copy);
+      return copy;
+    });
+  }
+
   function init() {
-    var v = vid();
-    if (!v) return;
+    var id = visitorId();
+    if (!id) return;
     css();
     var R = root();
-    if (R.dataset.i === "1") return;
-    R.dataset.i = "1";
-    var st = { o: !1, m: [], k: "", e: 0 };
+    if (R.dataset.ready === "1") return;
+    R.dataset.ready = "1";
+
+    var state = { open: false, messages: [], watermark: "", error: false, sending: false };
     R.innerHTML =
-      '<div class="w" id="W"><div class="p"><div class="h"><div class="hr"><div class="ti"><div class="av">CS</div><div><div class="t">在线客服</div><div class="s">在线 · 尽快回复</div></div></div><button class="x" id="X">×</button></div></div><div class="c" id="S"></div><div class="f"><div class="i"><input class="ipt" id="N" placeholder="输入消息…" autocomplete="off"><button class="z" id="B">→</button></div></div></div><button class="L" id="L"><span class="b" id="G"></span>' +
-      I +
+      '<div class="csw" id="CSW"><div class="csp"><div class="csh"><div><div class="cst">AI Support</div><div class="css">Product help and recommendations</div></div><button class="csx" id="CSX">x</button></div><div class="csm" id="CSM"></div><div class="csf"><div class="csi"><input class="ipt" id="CSI" placeholder="Ask about products..." autocomplete="off"><button class="send" id="CSS">↑</button></div></div></div><button class="csl" id="CSL"><span class="csb" id="CSB"></span>' +
+      ICON +
       "</button></div>";
-    var W = document.getElementById("W"),
-      S = document.getElementById("S"),
-      N = document.getElementById("N"),
-      G = document.getElementById("G"),
-      L = document.getElementById("L"),
-      X = document.getElementById("X");
-    function op(e) {
-      var p = st.o;
-      st.o = e;
-      W.classList.toggle("o", e);
-      if (e) {
-        G.classList.remove("on");
-        S.dataset.sig = "";
-        ren(S, st.m, !!st.e && !(st.m && st.m.length), true);
+
+    var W = document.getElementById("CSW");
+    var M = document.getElementById("CSM");
+    var I = document.getElementById("CSI");
+    var B = document.getElementById("CSB");
+    var L = document.getElementById("CSL");
+    var X = document.getElementById("CSX");
+    var S = document.getElementById("CSS");
+
+    function open(value) {
+      var wasOpen = state.open;
+      state.open = value;
+      W.classList.toggle("open", value);
+      if (value) {
+        B.classList.remove("on");
+        M.dataset.sig = "";
+        render(M, state.messages, state.error && !state.messages.length, true);
         setTimeout(function () {
-          N.focus();
+          I.focus();
         }, 180);
-      } else {
-        if (p) st.k = max(st.m);
-        G.classList.toggle("on", unr(st.m, st.k));
+      } else if (wasOpen) {
+        state.watermark = latestStaffTime(state.messages);
+        B.classList.toggle("on", hasUnread(state.messages, state.watermark));
       }
     }
-    function ap(d) {
-      st.m = d && d.messages ? d.messages : [];
-      st.e = d && d.error ? 1 : 0;
-      if (G && !st.o) G.classList.toggle("on", unr(st.m, st.k));
-      if (S && st.o)
-        ren(S, st.m, !!st.e && !(st.m && st.m.length));
+
+    function setSending(value) {
+      state.sending = value;
+      S.disabled = value;
+      I.disabled = value;
     }
-    function po() {
-      fetch(url(v), { headers: { Accept: "application/json" } })
-        .then(function (r) {
-          var ct = (r.headers.get("content-type") || "").toLowerCase();
-          if (ct.indexOf("json") === -1)
-            return Promise.resolve({ body: null });
-          return r.json().then(function (body) {
-            return { body: body };
-          });
+
+    function applyData(data) {
+      state.messages = data && data.messages ? data.messages : [];
+      state.error = Boolean(data && data.error);
+      if (!state.open) B.classList.toggle("on", hasUnread(state.messages, state.watermark));
+      if (state.open) render(M, state.messages, state.error && !state.messages.length);
+    }
+
+    function poll() {
+      if (state.sending) return;
+      fetch(endpoint(id), { headers: { Accept: "application/json" } })
+        .then(function (res) {
+          if ((res.headers.get("content-type") || "").toLowerCase().indexOf("json") === -1) {
+            return null;
+          }
+          return res.json();
         })
-        .then(function (x) {
-          if (!x || !x.body) {
-            st.e = 1;
-            if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
+        .then(function (data) {
+          if (!data) {
+            state.error = true;
+            if (state.open) render(M, state.messages, !state.messages.length);
             return;
           }
-          ap(x.body);
+          applyData(data);
         })
         .catch(function () {
-          st.e = 1;
-          if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
+          state.error = true;
+          if (state.open) render(M, state.messages, !state.messages.length);
         });
     }
-    function se() {
-      var t = N.value.trim();
-      if (!t) return;
-      N.value = "";
-      var pid = "L" + Date.now() + Math.random().toString(36).slice(2, 8);
-      st.m = (st.m || []).concat([
-        { id: pid, sender: "VISITOR", body: t, createdAt: new Date().toISOString() },
-      ]);
-      if (S && st.o) ren(S, st.m, !!st.e && !(st.m && st.m.length), true);
-      fetch(url(v), {
+
+    function sendFallback(text, pid) {
+      return fetch(endpoint(id), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ body: t }),
+        body: JSON.stringify({ body: text }),
       })
-        .then(function (r) {
-          var ct = (r.headers.get("content-type") || "").toLowerCase();
-          if (ct.indexOf("json") === -1) return Promise.resolve(null);
-          return r.json().then(function (j) {
-            return { ok: r.ok, j: j };
+        .then(function (res) {
+          if ((res.headers.get("content-type") || "").toLowerCase().indexOf("json") === -1) {
+            return null;
+          }
+          return res.json().then(function (json) {
+            return { ok: res.ok, json: json };
           });
         })
-        .then(function (r) {
-          if (!r || !r.j) { st.e = 1; if (S && st.o) ren(S, st.m, !st.m || !st.m.length); return; }
-          if (r.ok && r.j.messages) {
-            st.e = 0;
-            st.m = mg(st.m, r.j.messages, pid, t);
-            if (S && st.o) ren(S, st.m, !!st.e && !(st.m && st.m.length));
-            if (G && !st.o) G.classList.toggle("on", unr(st.m, st.k));
+        .then(function (result) {
+          if (result && result.ok && result.json && result.json.messages) {
+            state.error = false;
+            state.messages = mergeMessages(state.messages, result.json.messages, pid);
+            render(M, state.messages, false);
           } else {
-            st.m = (st.m || []).filter(function (x) { return x.id != pid; });
-            st.e = 1;
-            if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
+            throw new Error("send_failed");
           }
-        })
-        .catch(function () {
-          st.m = (st.m || []).filter(function (x) { return x.id != pid; });
-          st.e = 1;
-          if (S && st.o) ren(S, st.m, !st.m || !st.m.length);
         });
     }
+
+    function handleStreamLine(line, pid) {
+      if (!line) return;
+      var event = JSON.parse(line);
+      if (event.type === "delta" && event.text) {
+        state.messages = updateMessage(state.messages, "streaming-ai", function (message) {
+          message.body = (message.body || "") + event.text;
+        });
+        render(M, state.messages, false, true);
+      } else if (event.type === "done" && event.messages) {
+        state.error = false;
+        state.messages = mergeMessages(state.messages, event.messages, pid);
+        render(M, state.messages, false, true);
+      } else if (event.type === "error") {
+        throw new Error(event.error || "stream_failed");
+      }
+    }
+
+    function sendStream(text, pid) {
+      if (!window.ReadableStream || !window.TextDecoder) return sendFallback(text, pid);
+
+      return fetch(endpoint(id, true), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+        body: JSON.stringify({ body: text }),
+      }).then(function (res) {
+        if (!res.ok || !res.body) throw new Error("stream_unavailable");
+        var reader = res.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+
+        function pump() {
+          return reader.read().then(function (result) {
+            if (result.done) {
+              if (buffer.trim()) handleStreamLine(buffer.trim(), pid);
+              return;
+            }
+            buffer += decoder.decode(result.value, { stream: true });
+            var lines = buffer.split(/\n/);
+            buffer = lines.pop() || "";
+            lines.forEach(function (line) {
+              handleStreamLine(line.trim(), pid);
+            });
+            return pump();
+          });
+        }
+
+        return pump();
+      });
+    }
+
+    function send() {
+      var text = I.value.trim();
+      if (!text || state.sending) return;
+      I.value = "";
+      setSending(true);
+      var pid = "local-" + Date.now() + Math.random().toString(36).slice(2, 8);
+      state.messages = state.messages.concat([
+        {
+          id: pid,
+          sender: "VISITOR",
+          kind: "TEXT",
+          body: text,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "streaming-ai",
+          sender: "AI",
+          kind: "TEXT",
+          body: "",
+          streaming: true,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      render(M, state.messages, false, true);
+
+      sendStream(text, pid)
+        .catch(function () {
+          state.messages = state.messages.filter(function (message) {
+            return message.id !== pid && message.id !== "streaming-ai";
+          });
+          state.error = true;
+          render(M, state.messages, !state.messages.length, true);
+        })
+        .finally(function () {
+          setSending(false);
+          I.focus();
+        });
+    }
+
+    function addToCart(button) {
+      var variantId = button.getAttribute("data-variant");
+      if (!variantId) return;
+      button.disabled = true;
+      button.textContent = "Adding";
+      fetch("/cart/add.js", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ id: Number(variantId), quantity: 1 }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error("cart_add_failed");
+          button.textContent = "Added";
+        })
+        .catch(function () {
+          button.disabled = false;
+          button.textContent = "Retry";
+        });
+    }
+
     L.addEventListener("click", function () {
-      op(!st.o);
+      open(!state.open);
     });
-    X.addEventListener("click", function (e) {
-      e.stopPropagation();
-      op(!1);
+    X.addEventListener("click", function (event) {
+      event.stopPropagation();
+      open(false);
     });
-    R.addEventListener("click", function (e) {
-      if (e.target && e.target.id === "B") se();
+    R.addEventListener("click", function (event) {
+      var target = event.target;
+      if (target && target.id === "CSS") send();
+      if (target && target.classList && target.classList.contains("add")) addToCart(target);
     });
-    R.addEventListener("keydown", function (e) {
-      if (e.target && e.target.id === "N" && e.key === "Enter") se();
+    R.addEventListener("keydown", function (event) {
+      if (event.target && event.target.id === "CSI" && event.key === "Enter") send();
     });
-    po();
-    setInterval(po, P);
+
+    poll();
+    setInterval(poll, POLL_MS);
   }
-  document.readyState === "loading"
-    ? document.addEventListener("DOMContentLoaded", init)
-    : init();
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

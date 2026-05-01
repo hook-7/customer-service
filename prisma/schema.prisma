@@ -36,12 +36,25 @@ model Session {
 enum MessageSender {
   VISITOR
   STAFF
+  AI
+}
+
+enum MessageKind {
+  TEXT
+  PRODUCT_RECOMMENDATION
+}
+
+enum HermesSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
 }
 
 model Conversation {
   id        String    @id @default(cuid())
   shop      String
   visitorId String
+  aiEnabled Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
@@ -55,8 +68,36 @@ model Message {
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         MessageSender
+  kind           MessageKind   @default(TEXT)
   body           String
+  metadata       String?
   createdAt      DateTime      @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+model ProductSnapshot {
+  id               String           @id @default(cuid())
+  shop             String
+  productGid       String
+  title            String
+  description      String?
+  handle           String
+  imageUrl         String?
+  productUrl       String?
+  defaultVariantGid String?
+  price            String?
+  currencyCode     String?
+  available        Boolean          @default(false)
+  published        Boolean          @default(false)
+  sourceUpdatedAt  DateTime?
+  hermesSyncStatus HermesSyncStatus @default(PENDING)
+  hermesSyncedAt   DateTime?
+  hermesError      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([shop, productGid])
+  @@index([shop, available, published])
+  @@index([shop, hermesSyncStatus])
 }

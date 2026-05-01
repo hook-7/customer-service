@@ -5,12 +5,26 @@ import {
   getOrCreateConversation,
   isValidVisitorId,
   listMessagesForConversation,
+  serializeMessage,
 } from "../models/chat.server";
+import {
+  buildProductContext,
+  getRecommendedProductCards,
+} from "../models/products.server";
 import { authenticate } from "../shopify.server";
-import { openclawChatComplete } from "../services/openclaw.server";
+import {
+  askHermesCustomerService,
+  streamHermesCustomerService,
+} from "../services/hermes.server";
 
 const MAX_BODY = 2000;
-const AI_MAX_OUTPUT = 2000;
+const AI_FALLBACK_MESSAGE = "AI support did not return. Please try again.";
+
+function fallbackMessage(error?: string) {
+  return error
+    ? `${AI_FALLBACK_MESSAGE} Reason: ${error.slice(0, 300)}`
+    : AI_FALLBACK_MESSAGE;
+}
 
 function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, {
@@ -31,10 +45,44 @@ async function getShopFromProxy(request: Request) {
   return shop;
 }
 
-export const loader = async ({
-  request,
-  params,
-}: LoaderFunctionArgs) => {
+async function appendAiReply(args: {
+  conversationId: string;
+  shop: string;
+  reply:
+    | {
+        replyText: string;
+        recommendedProductIds: string[];
+        recommendationReasons?: Record<string, string>;
+      }
+    | null;
+  error?: string;
+}) {
+  const replyText = args.reply?.replyText?.trim() || fallbackMessage(args.error);
+  await appendMessage(args.conversationId, "AI", replyText.slice(0, MAX_BODY));
+
+  if (!args.reply) return;
+
+  const cards = await getRecommendedProductCards(
+    args.shop,
+    args.reply.recommendedProductIds || [],
+    args.reply.recommendationReasons,
+  );
+  if (cards.length) {
+    await appendMessage(
+      args.conversationId,
+      "AI",
+      "Recommended products",
+      "PRODUCT_RECOMMENDATION",
+      { products: cards },
+    );
+  }
+}
+
+function ndjson(data: unknown) {
+  return `${JSON.stringify(data)}\n`;
+}
+
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const visitorId = params.visitorId ?? "";
   if (!isValidVisitorId(visitorId)) {
     return json({ error: "invalid_visitor" }, { status: 400 });
@@ -46,19 +94,12 @@ export const loader = async ({
 
   return json({
     conversationId: conversation.id,
-    messages: messages.map((m) => ({
-      id: m.id,
-      sender: m.sender,
-      body: m.body,
-      createdAt: m.createdAt.toISOString(),
-    })),
+    aiEnabled: conversation.aiEnabled,
+    messages: messages.map(serializeMessage),
   });
 };
 
-export const action = async ({
-  request,
-  params,
-}: ActionFunctionArgs) => {
+export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -96,25 +137,76 @@ export const action = async ({
   const conversation = await getOrCreateConversation(shop, visitorId);
   await appendMessage(conversation.id, "VISITOR", text);
 
-  // 先取一次消息历史，用于 AI 生成（若配置了 OpenClaw）。
-  const beforeAi = await listMessagesForConversation(conversation.id);
-  const aiReply = await openclawChatComplete([
-    {
-      role: "system",
-      content:
-        "你是店铺在线客服。用简体中文简洁、礼貌地回答访客问题。若信息不足，先提出1-2个澄清问题。不要编造订单/物流等具体数据。",
-    },
-    ...beforeAi.slice(-30).map((m) => ({
-      role: m.sender === "VISITOR" ? ("user" as const) : ("assistant" as const),
-      content: m.body,
-    })),
-  ]);
+  if (new URL(request.url).searchParams.get("stream") === "1") {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const send = (data: unknown) => controller.enqueue(encoder.encode(ndjson(data)));
 
-  if (aiReply) {
-    const trimmed = aiReply.slice(0, AI_MAX_OUTPUT).trim();
-    if (trimmed.length) {
-      await appendMessage(conversation.id, "STAFF", trimmed);
-    }
+        try {
+          send({ type: "user_saved" });
+
+          if (conversation.aiEnabled) {
+            let streamedAnyText = false;
+            const result = await streamHermesCustomerService({
+              shop,
+              visitorId,
+              message: text,
+              productContext: await buildProductContext(shop),
+              onText: (delta) => {
+                streamedAnyText = true;
+                send({ type: "delta", text: delta });
+              },
+            });
+            if (!result.reply && !streamedAnyText) {
+              send({ type: "delta", text: fallbackMessage(result.error) });
+            }
+            await appendAiReply({
+              conversationId: conversation.id,
+              shop,
+              reply: result.reply,
+              error: result.error,
+            });
+          }
+
+          const messages = await listMessagesForConversation(conversation.id);
+          send({
+            type: "done",
+            ok: true,
+            conversationId: conversation.id,
+            aiEnabled: conversation.aiEnabled,
+            messages: messages.map(serializeMessage),
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          send({ type: "error", error: message });
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+      },
+    });
+  }
+
+  if (conversation.aiEnabled) {
+    const result = await askHermesCustomerService({
+      shop,
+      visitorId,
+      message: text,
+      productContext: await buildProductContext(shop),
+    });
+    await appendAiReply({
+      conversationId: conversation.id,
+      shop,
+      reply: result.reply,
+      error: result.error,
+    });
   }
 
   const messages = await listMessagesForConversation(conversation.id);
@@ -122,11 +214,7 @@ export const action = async ({
   return json({
     ok: true,
     conversationId: conversation.id,
-    messages: messages.map((m) => ({
-      id: m.id,
-      sender: m.sender,
-      body: m.body,
-      createdAt: m.createdAt.toISOString(),
-    })),
+    aiEnabled: conversation.aiEnabled,
+    messages: messages.map(serializeMessage),
   });
 };
