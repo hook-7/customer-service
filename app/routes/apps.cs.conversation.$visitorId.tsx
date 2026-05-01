@@ -17,6 +17,7 @@ import {
   askHermesCustomerService,
   streamHermesCustomerService,
 } from "../services/hermes.server";
+import { checkChatRateLimit } from "../services/chat-rate-limit.server";
 
 const MAX_BODY = 2000;
 const AI_FALLBACK_MESSAGE =
@@ -155,6 +156,17 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
   if (!isValidClientMessageId(clientMessageId)) {
     return json({ error: "invalid_client_message_id" }, { status: 400 });
+  }
+
+  const rateLimit = await checkChatRateLimit(shop, visitorId);
+  if (!rateLimit.allowed) {
+    return json(
+      { error: "rate_limited", retryAfterSeconds: rateLimit.retryAfterSeconds },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
   }
 
   const conversation = await getOrCreateConversation(shop, visitorId);

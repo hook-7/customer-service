@@ -9,8 +9,9 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Session {
@@ -53,6 +54,18 @@ enum HermesSyncStatus {
 enum ConversationStatus {
   PENDING
   HANDLED
+}
+
+enum BackgroundJobType {
+  PRODUCT_UPSERT
+  PRODUCT_DELETE
+}
+
+enum BackgroundJobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
 }
 
 model Conversation {
@@ -127,4 +140,34 @@ model ProductSnapshot {
   @@unique([shop, productGid])
   @@index([shop, available, published])
   @@index([shop, hermesSyncStatus])
+}
+
+model BackgroundJob {
+  id        String              @id @default(cuid())
+  shop      String
+  type      BackgroundJobType
+  payload   Json
+  status    BackgroundJobStatus @default(PENDING)
+  attempts  Int                 @default(0)
+  runAfter  DateTime            @default(now())
+  lockedAt  DateTime?
+  lastError String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([status, runAfter])
+  @@index([shop, status])
+}
+
+model ChatRateLimit {
+  id          String   @id @default(cuid())
+  shop        String
+  visitorId   String
+  windowStart DateTime
+  count       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([shop, visitorId])
+  @@index([shop, windowStart])
 }

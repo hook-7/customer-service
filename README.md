@@ -83,13 +83,31 @@ Please read the [documentation for @shopify/shopify-app-remix](https://www.npmjs
 
 ### Application Storage
 
-This template uses [Prisma](https://www.prisma.io/) to store session data, by default using an [SQLite](https://www.sqlite.org/index.html) database.
-The database is defined as a Prisma schema in `prisma/schema.prisma`.
+This app uses [Prisma](https://www.prisma.io/) with PostgreSQL for session data,
+customer-service conversations, product snapshots, rate limiting, and background
+jobs. The database is defined in `prisma/schema.prisma` and the production
+baseline migration is in `prisma/migrations/20260501000000_postgres_baseline`.
 
-This use of SQLite works in production if your app runs as a single instance.
-This project intentionally keeps SQLite for the current deployment shape. If the
-app needs multiple web instances, shared background workers, or higher write
-concurrency, plan a separate PostgreSQL migration before scaling horizontally.
+For Supabase, configure both connection strings before running migrations:
+
+```shell
+DATABASE_URL="postgresql://postgres.daipedsquvbxpjoaxjfk:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL="postgresql://postgres.daipedsquvbxpjoaxjfk:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+```
+
+Replace `[YOUR-PASSWORD]` before deploying. `DATABASE_URL` is used by the app at
+runtime through the pooler, while `DIRECT_URL` is used by Prisma migrations.
+
+Run database setup with:
+
+```shell
+npx prisma generate
+npx prisma migrate deploy
+```
+
+The existing SQLite development database is not migrated automatically. Treat the
+PostgreSQL baseline as the production starting point.
+
 The database that works best for you depends on the data your app needs and how it is queried.
 You can run your database of choice on a server yourself or host it with a SaaS company.
 Here's a short list of databases providers that provide a free tier to get started:
@@ -102,6 +120,33 @@ Here's a short list of databases providers that provide a free tier to get start
 | MongoDB    | NoSQL / Document | [Digital Ocean](https://www.digitalocean.com/products/managed-databases-mongodb), [MongoDB Atlas](https://www.mongodb.com/atlas/database)                                                                                                  |
 
 To use one of these, you can use a different [datasource provider](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#datasource) in your `schema.prisma` file, or a different [SessionStorage adapter package](https://github.com/Shopify/shopify-api-js/blob/main/packages/shopify-api/docs/guides/session-storage.md).
+
+### Shopify production configuration
+
+The app configuration is set to `https://shopify.0-9.fun` with OAuth callback
+`https://shopify.0-9.fun/auth/callback`. After changing app configuration or
+webhooks, release the Shopify app version with:
+
+```shell
+npm run deploy
+```
+
+The app subscribes to the mandatory compliance webhooks
+`customers/data_request`, `customers/redact`, and `shop/redact`. Store-level
+redaction and app uninstall delete all local data for that shop.
+
+### Background jobs
+
+Product create/update/delete webhooks enqueue database-backed jobs and return
+quickly. A trusted scheduler should periodically call:
+
+```shell
+curl -X POST "https://shopify.0-9.fun/jobs/run?limit=10" \
+  -H "Authorization: Bearer $BACKGROUND_JOB_SECRET"
+```
+
+Set `BACKGROUND_JOB_SECRET` in production. If it is not configured, the job
+endpoint returns 404. Failed jobs are retried with backoff up to five attempts.
 
 ### Build
 

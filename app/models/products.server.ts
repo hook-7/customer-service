@@ -144,11 +144,10 @@ export async function syncProductSnapshotToHermes(
     action,
     payload: product,
   });
-  const externalSyncRequired = process.env.HERMES_PRODUCT_SYNC_REQUIRED === "true";
 
   await prisma.productSnapshot.update({
     where: { shop_productGid: { shop, productGid } },
-    data: result.ok || !externalSyncRequired
+    data: result.ok
       ? {
           hermesSyncStatus: "SYNCED",
           hermesSyncedAt: new Date(),
@@ -160,5 +159,5 @@ export async function syncProductSnapshotToHermes(
         },
   });
 
-  return result.ok || !externalSyncRequired;
+  return result.ok;
 }

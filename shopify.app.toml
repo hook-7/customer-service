@@ -2,7 +2,7 @@
 
 client_id = "755ed3e44376cc56ff0a932d1139101b"
 name = "customer-service"
-application_url = "https://example.com"
+application_url = "https://shopify.0-9.fun"
 embedded = true
 
 [build]
@@ -32,17 +32,26 @@ api_version = "2026-04"
   topics = [ "products/delete" ]
   uri = "/webhooks/products/delete"
 
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request" ]
+  uri = "/webhooks/customers/data_request"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/redact" ]
+  uri = "/webhooks/customers/redact"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "shop/redact" ]
+  uri = "/webhooks/shop/redact"
+
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,write_app_proxy"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ ]
+redirect_urls = [ "https://shopify.0-9.fun/auth/callback" ]
 
-# 必须用「应用上的路径」与 Remix 路由一致：店面 /apps/cs/... 会转发到 {应用根}/apps/cs/...
-# 若写 https://example.com 根地址，Shopify 只会把 /conversation/... 接到根下，命中不了 apps.cs.* 路由。
 [app_proxy]
 url = "/apps/cs"
 prefix = "apps"
