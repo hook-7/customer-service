@@ -263,6 +263,9 @@ function createClientMessageId() {
   return `staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export default function ConversationDetail() {
   const { conversation } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
@@ -434,7 +437,7 @@ export default function ConversationDetail() {
     "|" +
     (msgs.length ? msgs[msgs.length - 1].createdAt : "");
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const el = listRef.current;
     if (!el || lastSigRef.current === sig) return;
     const firstRender = lastSigRef.current === "";
