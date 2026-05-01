@@ -470,7 +470,7 @@ export default function ConversationDetail() {
                   {statusLabel(conversation.status)}
                 </Badge>
                 <Badge tone={conversation.aiEnabled ? "success" : "critical"}>
-                  AI {conversation.aiEnabled ? "开启" : "暂停"}
+                  {`AI ${conversation.aiEnabled ? "开启" : "暂停"}`}
                 </Badge>
               </InlineStack>
               <Text as="p" variant="bodySm" tone="subdued">

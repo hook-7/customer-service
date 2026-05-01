@@ -172,7 +172,7 @@ export async function syncAllPublishedProducts(admin: AdminApiContext, shop: str
   let synced = 0;
 
   do {
-    const data = await graphql<ProductsResponse>(admin, PRODUCTS_QUERY, {
+    const data: ProductsResponse = await graphql<ProductsResponse>(admin, PRODUCTS_QUERY, {
       first: 50,
       after,
     });

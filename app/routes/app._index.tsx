@@ -231,7 +231,7 @@ export default function Index() {
                           {c.status === "PENDING" ? "待处理" : "已处理"}
                         </Badge>
                         <Badge tone={c.aiEnabled ? "success" : "critical"}>
-                          AI {c.aiEnabled ? "开启" : "暂停"}
+                          {`AI ${c.aiEnabled ? "开启" : "暂停"}`}
                         </Badge>
                       </InlineStack>
                       <Text as="p" variant="bodySm" tone="subdued">

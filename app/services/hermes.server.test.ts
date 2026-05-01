@@ -81,7 +81,9 @@ test("streamHermesCustomerService returns a normal assistant reply from SSE", as
     visitorId: "visitor-1",
     message: "给我推荐一个产品",
     productContext: "ID: gid://shopify/Product/1\nTitle: The Complete Snowboard",
-    onText: (delta) => deltas.push(delta),
+    onText: (delta) => {
+      deltas.push(delta);
+    },
   });
 
   assert.equal(result.error, undefined);

@@ -87,6 +87,9 @@ This template uses [Prisma](https://www.prisma.io/) to store session data, by de
 The database is defined as a Prisma schema in `prisma/schema.prisma`.
 
 This use of SQLite works in production if your app runs as a single instance.
+This project intentionally keeps SQLite for the current deployment shape. If the
+app needs multiple web instances, shared background workers, or higher write
+concurrency, plan a separate PostgreSQL migration before scaling horizontally.
 The database that works best for you depends on the data your app needs and how it is queried.
 You can run your database of choice on a server yourself or host it with a SaaS company.
 Here's a short list of databases providers that provide a free tier to get started:
