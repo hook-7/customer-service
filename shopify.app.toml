@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "755ed3e44376cc56ff0a932d1139101b"
-name = "customer-service"
+name = "AI Product Support"
 application_url = "https://shopify.0-9.fun"
 embedded = true
 

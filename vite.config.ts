@@ -19,6 +19,8 @@ if (
 
 const host = new URL(process.env.SHOPIFY_APP_URL || "http://localhost")
   .hostname;
+const requestedPort = Number(process.env.PORT || 3000);
+const serverPort = requestedPort === 9293 ? 3000 : requestedPort;
 
 let hmrConfig;
 if (host === "localhost") {
@@ -44,7 +46,7 @@ export default defineConfig({
     cors: {
       preflightContinue: true,
     },
-    port: Number(process.env.PORT || 3000),
+    port: serverPort,
     hmr: hmrConfig,
     fs: {
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information

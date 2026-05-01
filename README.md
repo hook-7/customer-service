@@ -91,22 +91,29 @@ baseline migration is in `prisma/migrations/20260501000000_postgres_baseline`.
 For Supabase, configure both connection strings before running migrations:
 
 ```shell
-DATABASE_URL="postgresql://postgres.daipedsquvbxpjoaxjfk:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL="postgresql://postgres.daipedsquvbxpjoaxjfk:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://shopify:shopify@127.0.0.1:5432/shopify"
+DIRECT_URL="postgresql://shopify:shopify@127.0.0.1:5432/shopify"
 ```
 
-Replace `[YOUR-PASSWORD]` before deploying. `DATABASE_URL` is used by the app at
-runtime through the pooler, while `DIRECT_URL` is used by Prisma migrations.
+`DATABASE_URL` is used by the app at runtime, while `DIRECT_URL` is used by
+Prisma migrations. The local PostgreSQL role, password, and database name must
+exist before running migrations.
 
 Run database setup with:
 
 ```shell
 npx prisma generate
-npx prisma migrate deploy
+npm run db:migrate
 ```
 
 The existing SQLite development database is not migrated automatically. Treat the
 PostgreSQL baseline as the production starting point.
+Migrations also run automatically from `shopify app dev`, `npm run setup`, and
+`npm run start`. `shopify app dev` does not run `prisma generate` on every boot
+to avoid Windows file-lock errors while a previous Node process still has Prisma
+engine files open. The theme app extension preview uses port 9294 instead of
+Shopify CLI's default 9293 to avoid a local preview-port self-collision during
+`shopify app dev`. Run `npm run setup` after changing `prisma/schema.prisma`.
 
 The database that works best for you depends on the data your app needs and how it is queried.
 You can run your database of choice on a server yourself or host it with a SaaS company.
@@ -210,7 +217,8 @@ If you get this error:
 The table `main.Session` does not exist in the current database.
 ```
 
-You need to create the database for Prisma. Run the `setup` script in `package.json` using your preferred package manager.
+Ensure the local PostgreSQL server is reachable, then run `npm run setup` or
+`npm run db:migrate`.
 
 ### Navigating/redirecting breaks an embedded app
 
