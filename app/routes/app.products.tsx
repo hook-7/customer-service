@@ -27,8 +27,14 @@ export function ErrorBoundary() {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const status = url.searchParams.get("status") === "failed" ? "failed" : "all";
+  const where =
+    status === "failed"
+      ? { shop: session.shop, hermesSyncStatus: "FAILED" as const }
+      : { shop: session.shop };
   const products = await prisma.productSnapshot.findMany({
-    where: { shop: session.shop },
+    where,
     orderBy: { updatedAt: "desc" },
     take: 50,
   });
@@ -39,11 +45,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const failed = await prisma.productSnapshot.count({
     where: { shop: session.shop, hermesSyncStatus: "FAILED" },
   });
+  const pending = await prisma.productSnapshot.count({
+    where: { shop: session.shop, hermesSyncStatus: "PENDING" },
+  });
+  const latestSync = await prisma.productSnapshot.aggregate({
+    where: { shop: session.shop, hermesSyncedAt: { not: null } },
+    _max: { hermesSyncedAt: true },
+  });
 
   return {
+    status,
     total,
     synced,
     failed,
+    pending,
+    latestSyncAt: latestSync._max.hermesSyncedAt?.toISOString() ?? null,
     products: products.map((product) => ({
       id: product.id,
       title: product.title,
@@ -53,6 +69,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       currencyCode: product.currencyCode,
       hermesSyncStatus: product.hermesSyncStatus,
       updatedAt: product.updatedAt.toISOString(),
+      hermesSyncedAt: product.hermesSyncedAt?.toISOString() ?? null,
       hermesError: product.hermesError,
     })),
   };
@@ -69,7 +86,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function ProductsPage() {
-  const { total, synced, failed, products } = useLoaderData<typeof loader>();
+  const { status, total, synced, failed, pending, latestSyncAt, products } =
+    useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
   const lastData = useRef<typeof fetcher.data>(undefined);
@@ -98,7 +116,7 @@ export default function ProductsPage() {
     >
       <TitleBar title="商品知识库" />
       <BlockStack gap="400">
-        <InlineStack gap="400">
+        <InlineStack gap="400" wrap>
           <Card>
             <BlockStack gap="100">
               <Text as="p" tone="subdued">
@@ -122,6 +140,16 @@ export default function ProductsPage() {
           <Card>
             <BlockStack gap="100">
               <Text as="p" tone="subdued">
+                等待同步
+              </Text>
+              <Text as="p" variant="headingLg">
+                {pending}
+              </Text>
+            </BlockStack>
+          </Card>
+          <Card>
+            <BlockStack gap="100">
+              <Text as="p" tone="subdued">
                 同步失败
               </Text>
               <Text as="p" variant="headingLg">
@@ -130,6 +158,31 @@ export default function ProductsPage() {
             </BlockStack>
           </Card>
         </InlineStack>
+
+        <Card>
+          <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+            <BlockStack gap="100">
+              <Text as="h2" variant="headingMd">
+                同步状态
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                最近成功同步：
+                {latestSyncAt ? new Date(latestSyncAt).toLocaleString() : "暂无"}
+              </Text>
+              <Text as="p" variant="bodySm" tone="subdued">
+                当前列表：{status === "failed" ? "仅显示同步失败商品" : "显示最近 50 个商品"}
+              </Text>
+            </BlockStack>
+            <InlineStack gap="200">
+              <Button url="/app/products?status=failed" disabled={status === "failed"}>
+                只看失败
+              </Button>
+              <Button url="/app/products" disabled={status === "all"}>
+                显示全部
+              </Button>
+            </InlineStack>
+          </InlineStack>
+        </Card>
 
         <Card padding="0">
           <IndexTable
@@ -172,7 +225,19 @@ export default function ProductsPage() {
                     ? `${product.price} ${product.currencyCode || ""}`.trim()
                     : "-"}
                 </IndexTable.Cell>
-                <IndexTable.Cell>{product.hermesSyncStatus}</IndexTable.Cell>
+                <IndexTable.Cell>
+                  <Badge
+                    tone={
+                      product.hermesSyncStatus === "SYNCED"
+                        ? "success"
+                        : product.hermesSyncStatus === "FAILED"
+                          ? "critical"
+                          : "attention"
+                    }
+                  >
+                    {product.hermesSyncStatus}
+                  </Badge>
+                </IndexTable.Cell>
                 <IndexTable.Cell>
                   {new Date(product.updatedAt).toLocaleString()}
                 </IndexTable.Cell>

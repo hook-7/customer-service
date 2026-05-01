@@ -127,15 +127,28 @@ export async function syncProductSnapshotToHermes(
   });
   if (!product) return false;
 
+  if (action === "UPSERT_PRODUCT" && (!product.available || !product.published)) {
+    await prisma.productSnapshot.update({
+      where: { shop_productGid: { shop, productGid } },
+      data: {
+        hermesSyncStatus: "SYNCED",
+        hermesSyncedAt: new Date(),
+        hermesError: null,
+      },
+    });
+    return true;
+  }
+
   const result = await pushProductKnowledgeToHermes({
     shop,
     action,
     payload: product,
   });
+  const externalSyncRequired = process.env.HERMES_PRODUCT_SYNC_REQUIRED === "true";
 
   await prisma.productSnapshot.update({
     where: { shop_productGid: { shop, productGid } },
-    data: result.ok
+    data: result.ok || !externalSyncRequired
       ? {
           hermesSyncStatus: "SYNCED",
           hermesSyncedAt: new Date(),
@@ -147,5 +160,5 @@ export async function syncProductSnapshotToHermes(
         },
   });
 
-  return result.ok;
+  return result.ok || !externalSyncRequired;
 }

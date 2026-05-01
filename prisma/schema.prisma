@@ -50,17 +50,31 @@ enum HermesSyncStatus {
   FAILED
 }
 
+enum ConversationStatus {
+  PENDING
+  HANDLED
+}
+
 model Conversation {
-  id        String    @id @default(cuid())
-  shop      String
-  visitorId String
-  aiEnabled Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
+  id                 String             @id @default(cuid())
+  shop               String
+  visitorId          String
+  aiEnabled          Boolean            @default(true)
+  status             ConversationStatus @default(HANDLED)
+  lastMessageAt      DateTime?
+  lastMessageSender  MessageSender?
+  lastMessagePreview String?
+  staffLastReadAt    DateTime?
+  internalNote       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  messages           Message[]
+  tags               ConversationTag[]
 
   @@unique([shop, visitorId])
   @@index([shop, updatedAt])
+  @@index([shop, status, updatedAt])
+  @@index([shop, aiEnabled, updatedAt])
 }
 
 model Message {
@@ -71,9 +85,22 @@ model Message {
   kind           MessageKind   @default(TEXT)
   body           String
   metadata       String?
+  clientMessageId String?
   createdAt      DateTime      @default(now())
 
+  @@unique([conversationId, clientMessageId])
   @@index([conversationId, createdAt])
+}
+
+model ConversationTag {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  label          String
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, label])
+  @@index([label])
 }
 
 model ProductSnapshot {

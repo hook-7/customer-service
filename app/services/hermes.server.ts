@@ -121,8 +121,21 @@ function withTimeout(ms: number) {
   };
 }
 
+function cleanKeyPart(value: string) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 96);
+}
+
+function conversationKey(...parts: string[]) {
+  return parts.map(cleanKeyPart).filter(Boolean).join("-");
+}
+
 function customerConversationKey(shop: string, visitorId: string) {
-  return `customer-service:${shop}:${visitorId}`;
+  return conversationKey("customer-service", shop, visitorId);
 }
 
 function activeConversationKey(base: string) {
@@ -130,15 +143,20 @@ function activeConversationKey(base: string) {
 }
 
 function shouldResetConversation(error?: string) {
+  const lower = error?.toLowerCase() || "";
   return Boolean(
     error &&
       (error.includes("Previous response not found") ||
-        error.includes("invalid_request_error")),
+        error.includes("invalid_request_error") ||
+        lower.includes("aborted") ||
+        lower.includes("aborterror") ||
+        lower.includes("timeout") ||
+        lower.includes("timed out")),
   );
 }
 
 function resetConversation(base: string) {
-  const next = `${base}:reset:${Date.now()}`;
+  const next = conversationKey(base, "reset", String(Date.now()));
   conversationResets.set(base, next);
   console.warn("[Hermes conversation reset]", { base, next });
   return next;
@@ -300,7 +318,12 @@ async function postResponses(
     }
     return { ok: true, text };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? `Hermes request timed out after ${timeoutMs || cfg.timeoutMs}ms`
+        : error instanceof Error
+          ? error.message
+          : String(error);
     return { ok: false, text: "", error: message };
   } finally {
     clear();
@@ -379,7 +402,12 @@ async function streamResponses(args: {
 
     return { ok: true, text: fullText.trim() };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? `Hermes stream timed out after ${args.timeoutMs || cfg.timeoutMs}ms`
+        : error instanceof Error
+          ? error.message
+          : String(error);
     return { ok: false, text: "", error: message };
   } finally {
     clear();
@@ -518,13 +546,24 @@ export async function pushProductKnowledgeToHermes(args: {
     sourceUpdatedAt: args.payload.sourceUpdatedAt,
   };
   const input = JSON.stringify({ action: args.action, shop: args.shop, product });
-  const productKey = (args.payload.productGid || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const productKey = args.payload.productGid || args.payload.handle || args.payload.title || "unknown";
+  const baseConversation = conversationKey("product-knowledge", args.shop, productKey);
 
-  const result = await postResponses(
+  let conversation = activeConversationKey(baseConversation);
+  let result = await postResponses(
     input,
-    `shop:${args.shop}:product-knowledge:${productKey}`,
+    conversation,
     instructions,
-    60000,
+    Number(env("HERMES_PRODUCT_SYNC_TIMEOUT_MS") || "15000"),
   );
+  if (!result.ok && shouldResetConversation(result.error)) {
+    conversation = resetConversation(baseConversation);
+    result = await postResponses(
+      input,
+      conversation,
+      instructions,
+      Number(env("HERMES_PRODUCT_SYNC_TIMEOUT_MS") || "15000"),
+    );
+  }
   return result.ok ? { ok: true as const } : { ok: false as const, error: result.error };
 }
