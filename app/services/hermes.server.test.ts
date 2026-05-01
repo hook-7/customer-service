@@ -50,15 +50,17 @@ test("parseHermesReply accepts JSON, fenced JSON, and plain text", () => {
   });
 });
 
-test("streamHermesCustomerService returns a normal assistant reply from SSE", async () => {
+test("streamHermesCustomerService streams visible assistant text from SSE", async () => {
   let requestBody: { conversation?: string; stream?: boolean } | undefined;
   const text =
-    '{"replyText":"可以推荐 The Complete Snowboard。","recommendedProductIds":["gid://shopify/Product/1"],"recommendationReasons":{"gid://shopify/Product/1":"适合综合使用"}}';
+    '{"replyText":"I recommend The Complete Snowboard.","recommendedProductIds":["gid://shopify/Product/1"],"recommendationReasons":{"gid://shopify/Product/1":"Good all-around fit."}}';
 
   globalThis.fetch = async (_input, init) => {
     requestBody = JSON.parse(String(init?.body));
     return new Response(
-      sse("response.output_text.delta", { delta: text }) +
+      sse("response.output_text.delta", { delta: text.slice(0, 16) }) +
+        sse("response.output_text.delta", { delta: text.slice(16, 48) }) +
+        sse("response.output_text.delta", { delta: text.slice(48) }) +
         sse("response.output_text.done", { text }) +
         sse("response.completed", {
           response: {
@@ -79,7 +81,7 @@ test("streamHermesCustomerService returns a normal assistant reply from SSE", as
   const result = await streamHermesCustomerService({
     shop: "dev-yangchao.myshopify.com",
     visitorId: "visitor-1",
-    message: "给我推荐一个产品",
+    message: "Recommend a product",
     productContext: "ID: gid://shopify/Product/1\nTitle: The Complete Snowboard",
     onText: (delta) => {
       deltas.push(delta);
@@ -87,9 +89,9 @@ test("streamHermesCustomerService returns a normal assistant reply from SSE", as
   });
 
   assert.equal(result.error, undefined);
-  assert.equal(result.reply?.replyText, "可以推荐 The Complete Snowboard。");
+  assert.equal(result.reply?.replyText, "I recommend The Complete Snowboard.");
   assert.deepEqual(result.reply?.recommendedProductIds, ["gid://shopify/Product/1"]);
-  assert.equal(deltas.join(""), "可以推荐 The Complete Snowboard。");
+  assert.equal(deltas.join(""), "I recommend The Complete Snowboard.");
   assert.equal(requestBody?.stream, true);
   assert.ok(requestBody?.conversation);
   assert.doesNotMatch(requestBody?.conversation || "", /[:.]/);

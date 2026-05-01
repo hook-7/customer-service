@@ -60,7 +60,7 @@ const widgetScript = String.raw`
       ".csm{flex:1;overflow-y:auto;background:#f8f7f5;padding:15px 14px 16px;scrollbar-width:thin}.csm::-webkit-scrollbar{width:8px}.csm::-webkit-scrollbar-thumb{background:#d6d3d1;border-radius:999px;border:2px solid #f8f7f5}" +
       ".csr{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 13px}.csr.visitor{align-items:flex-end}.msg{max-width:84%;font-size:14px;line-height:1.45;padding:10px 13px;word-break:break-word;white-space:pre-wrap;box-shadow:0 1px 1px #0000000a}.visitor .msg{background:#141414;color:#fff;border-radius:18px 18px 5px 18px}.agent .msg{background:#fff;color:#171717;border:1px solid #e7e5e4;border-radius:18px 18px 18px 5px}.failed .msg{border-color:#fecaca;background:#fff7f7}.streaming .msg{border-color:#ddd6ce}" +
       ".meta{font-size:10px;color:#9a918a;margin-top:4px;padding:0 5px;display:flex;align-items:center;gap:7px}.retry{border:0;background:transparent;color:#dc2626;font-size:10px;text-decoration:underline;cursor:pointer;padding:0}" +
-      ".typing{display:inline-flex;align-items:center;gap:4px;min-width:34px;height:18px}.typing i{width:6px;height:6px;border-radius:50%;background:#8a817b;animation:cstyping 1s infinite ease-in-out}.typing i:nth-child(2){animation-delay:.14s}.typing i:nth-child(3){animation-delay:.28s}@keyframes cstyping{0%,80%,100%{opacity:.32;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}" +
+      ".typing{display:inline-flex;align-items:center;gap:4px;min-width:34px;height:18px}.typing i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#8a817b;animation:cstyping 1s infinite ease-in-out}.typing i:nth-child(2){animation-delay:.14s}.typing i:nth-child(3){animation-delay:.28s}@keyframes cstyping{0%,80%,100%{opacity:.32;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}" +
       ".cards{display:grid;gap:9px;width:min(310px,88%);margin:0 0 12px}.pc{background:#fff;border:1px solid #e7e5e4;border-radius:10px;overflow:hidden;display:grid;grid-template-columns:76px 1fr;min-height:90px;box-shadow:0 1px 2px #0000000a}.pc img{width:76px;height:100%;min-height:90px;object-fit:cover;background:#f4f4f5}.pcb{padding:9px;min-width:0}.pct{font-weight:750;font-size:13px;line-height:1.25;color:#111;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.pcp{font-size:12px;color:#525252;margin-bottom:5px}.pcr{font-size:12px;line-height:1.3;color:#57534e;margin-bottom:7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.pca{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.add,.view{height:28px;border-radius:7px;border:0;padding:0 10px;font-size:12px;font-weight:650;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.add{background:#141414;color:#fff}.add[disabled]{background:#a8a29e;cursor:not-allowed}.view{background:#f1efec;color:#171717}.view:hover{background:#e7e5e4}" +
       ".csf{padding:10px 12px 12px;border-top:1px solid #eeeae7;background:#fff}.csi{display:flex;gap:7px;align-items:center;background:#f4f2ef;border:1px solid transparent;border-radius:999px;padding:4px 5px 4px 14px;transition:border-color .15s ease,background .15s ease}.csi:focus-within{background:#fff;border-color:#d6d3d1}.ipt{flex:1!important;border:0!important;background:transparent!important;outline:0!important;box-shadow:none!important;min-width:0!important;font-size:14px!important;padding:9px 0!important;color:#171717!important}.ipt::placeholder{color:#9a918a}.send{width:38px;height:38px;border:0;border-radius:50%;background:#141414;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s ease,transform .15s ease}.send:hover{background:#262626}.send:active{transform:scale(.96)}.send[disabled]{background:#a8a29e;cursor:not-allowed}" +
       ".empty{text-align:center;color:#78716c;font-size:13px;line-height:1.5;padding:34px 18px}.err{color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:12px;text-align:center;margin-top:8px;padding:8px 10px}" +
@@ -93,6 +93,24 @@ const widgetScript = String.raw`
 
   function messageKey(message) {
     return message && (message.clientMessageId || message.id);
+  }
+
+  function requestThreadKey(message) {
+    var key = String(messageKey(message) || "");
+    if (key.indexOf("ai-products-") === 0) return key.slice("ai-products-".length);
+    if (key.indexOf("ai-") === 0) return key.slice("ai-".length);
+    if (key.indexOf("client-") === 0) return key;
+    return "";
+  }
+
+  function requestMessageRank(message) {
+    var key = String(messageKey(message) || "");
+    if (message && message.sender === "VISITOR") return 0;
+    if (key.indexOf("ai-products-") === 0 || (message && message.kind === "PRODUCT_RECOMMENDATION")) {
+      return 2;
+    }
+    if (key.indexOf("ai-") === 0 || (message && message.sender !== "VISITOR")) return 1;
+    return 3;
   }
 
   function numericVariantId(gid) {
@@ -272,6 +290,12 @@ const widgetScript = String.raw`
       })
       .filter(Boolean)
       .sort(function (a, b) {
+        var aThread = requestThreadKey(a);
+        var bThread = requestThreadKey(b);
+        if (aThread && aThread === bThread) {
+          var rankDiff = requestMessageRank(a) - requestMessageRank(b);
+          if (rankDiff) return rankDiff;
+        }
         var diff = String(a.createdAt || "").localeCompare(String(b.createdAt || ""));
         if (diff) return diff;
         return String(messageKey(a) || "").localeCompare(String(messageKey(b) || ""));
@@ -313,6 +337,7 @@ const widgetScript = String.raw`
     R.dataset.ready = "1";
 
     var state = { open: false, messages: [], watermark: "", error: false, sending: false };
+    var pollInFlight = false;
     R.innerHTML =
       '<div class="csw" id="CSW"><div class="csp"><div class="csh"><div class="csh-main"><div class="avatar">' +
       ICON +
@@ -370,7 +395,9 @@ const widgetScript = String.raw`
     }
 
     function poll() {
-      fetch(endpoint(id), { headers: { Accept: "application/json" } })
+      if (pollInFlight) return Promise.resolve();
+      pollInFlight = true;
+      return fetch(endpoint(id), { headers: { Accept: "application/json" } })
         .then(function (res) {
           if ((res.headers.get("content-type") || "").toLowerCase().indexOf("json") === -1) {
             return null;
@@ -388,7 +415,14 @@ const widgetScript = String.raw`
         .catch(function () {
           state.error = true;
           if (state.open) render(M, state.messages, !state.messages.length);
+        })
+        .finally(function () {
+          pollInFlight = false;
         });
+    }
+
+    function preloadConversation() {
+      return poll();
     }
 
     function ensureAssistantPlaceholder(requestId) {
@@ -574,6 +608,7 @@ const widgetScript = String.raw`
       var requestId = message.clientMessageId || message.id;
       var requestState = { acked: false, aiEnabled: false };
       state.messages = markMessage(state.messages, requestId, "sending");
+      ensureAssistantPlaceholder(requestId);
       render(M, state.messages, false, true);
       setSending(true);
       sendStream(message.body, requestId, requestState)
@@ -648,7 +683,7 @@ const widgetScript = String.raw`
       if (event.target && event.target.id === "CSI" && event.key === "Enter") send();
     });
 
-    poll();
+    preloadConversation();
     setInterval(poll, POLL_MS);
     if (AUTO_OPEN) setOpen(true);
   }

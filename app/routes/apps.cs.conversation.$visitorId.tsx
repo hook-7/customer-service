@@ -18,6 +18,7 @@ import {
   streamHermesCustomerService,
 } from "../services/hermes.server";
 import { checkChatRateLimit } from "../services/chat-rate-limit.server";
+import { createConversationStream } from "../services/conversation-stream.server";
 
 const MAX_BODY = 2000;
 const AI_FALLBACK_MESSAGE =
@@ -95,10 +96,6 @@ async function appendAiReply(args: {
   }
 
   return messages;
-}
-
-function ndjson(data: unknown) {
-  return `${JSON.stringify(data)}\n`;
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -181,89 +178,21 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const ack = serializeMessage(userMessage);
 
   if (new URL(request.url).searchParams.get("stream") === "1") {
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const send = (data: unknown) => controller.enqueue(encoder.encode(ndjson(data)));
-
-        try {
-          send({
-            type: "ack",
-            ok: true,
-            conversationId: conversation.id,
-            aiEnabled: conversation.aiEnabled,
-            message: ack,
-          });
-
-          if (conversation.aiEnabled) {
-            let streamedAnyText = false;
-            const result = await streamHermesCustomerService({
-              shop,
-              visitorId,
-              message: text,
-              productContext: await buildProductContext(shop),
-              onText: (delta) => {
-                streamedAnyText = true;
-                send({ type: "assistant_delta", text: delta });
-              },
-            });
-            if (!result.reply && !streamedAnyText) {
-              send({ type: "assistant_delta", text: fallbackMessage(result.error) });
-            }
-            const assistantMessages = await appendAiReply({
-              conversationId: conversation.id,
-              shop,
-              requestClientMessageId: clientMessageId,
-              reply: result.reply,
-              error: result.error,
-            });
-            send({
-              type: "assistant_done",
-              ok: Boolean(result.reply),
-              messages: assistantMessages.map(serializeMessage),
-            });
-          }
-
-          const messages = await listMessagesForConversation(conversation.id);
-          send({
-            type: "done",
-            ok: true,
-            conversationId: conversation.id,
-            aiEnabled: conversation.aiEnabled,
-            messages: messages.map(serializeMessage),
-          });
-        } catch (error) {
-          const assistantMessages = await appendAiReply({
-            conversationId: conversation.id,
-            shop,
-            requestClientMessageId: clientMessageId,
-            reply: null,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          send({
-            type: "assistant_done",
-            ok: false,
-            messages: assistantMessages.map(serializeMessage),
-          });
-          const messages = await listMessagesForConversation(conversation.id);
-          send({
-            type: "done",
-            ok: false,
-            conversationId: conversation.id,
-            aiEnabled: conversation.aiEnabled,
-            messages: messages.map(serializeMessage),
-          });
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "application/x-ndjson; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-      },
+    return createConversationStream({
+      conversationId: conversation.id,
+      aiEnabled: conversation.aiEnabled,
+      ack,
+      shop,
+      visitorId,
+      text,
+      clientMessageId,
+      buildProductContext: () => buildProductContext(shop),
+      streamCustomerService: streamHermesCustomerService,
+      appendAiReply: async (args) =>
+        (await appendAiReply(args)).map(serializeMessage),
+      listMessages: async () =>
+        (await listMessagesForConversation(conversation.id)).map(serializeMessage),
+      fallbackMessage,
     });
   }
 
