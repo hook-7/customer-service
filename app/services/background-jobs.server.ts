@@ -36,16 +36,29 @@ export async function enqueueProductWebhookJob(
   });
 }
 
-async function runJob(type: BackgroundJobType, shop: string, payload: unknown) {
+async function runJob(
+  type: BackgroundJobType,
+  shop: string,
+  payload: unknown,
+  options: { finalAttempt: boolean },
+) {
   const productGid = productGidFromPayload(payload);
   if (!productGid) throw new Error("Background job payload is missing productGid.");
 
   if (type === "PRODUCT_DELETE") {
-    await deleteProductKnowledge(shop, productGid);
+    await deleteProductKnowledge(shop, productGid, {
+      finalFailure: options.finalAttempt,
+      scheduleRetryOnFailure: false,
+      throwOnHermesFailure: true,
+    });
     return;
   }
 
-  await syncProductByGid(shop, productGid);
+  await syncProductByGid(shop, productGid, {
+    finalFailure: options.finalAttempt,
+    scheduleRetryOnFailure: false,
+    throwOnHermesFailure: true,
+  });
 }
 
 export async function processPendingBackgroundJobs(limit = 10) {
@@ -86,7 +99,8 @@ export async function processPendingBackgroundJobs(limit = 10) {
 
     processed += 1;
     try {
-      await runJob(locked.type, locked.shop, locked.payload);
+      const finalAttempt = locked.attempts >= MAX_ATTEMPTS;
+      await runJob(locked.type, locked.shop, locked.payload, { finalAttempt });
       await prisma.backgroundJob.update({
         where: { id: locked.id },
         data: {

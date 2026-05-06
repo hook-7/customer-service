@@ -1,5 +1,11 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, Link, useLoaderData, useRouteError } from "@remix-run/react";
+import {
+  Form,
+  Link,
+  useLoaderData,
+  useNavigate,
+  useRouteError,
+} from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import {
   Badge,
@@ -110,6 +116,7 @@ export default function ConversationsIndex() {
     pendingCount,
     handledCount,
   } = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const [statusValue, setStatusValue] = useState<string>(filters.status);
   const [aiValue, setAiValue] = useState<string>(filters.ai);
   const [tagValue, setTagValue] = useState<string>(filters.tag);
@@ -227,11 +234,28 @@ export default function ConversationsIndex() {
               ]}
             >
               {conversations.map((c, index) => (
-                <IndexTable.Row id={c.id} key={c.id} position={index}>
+                <IndexTable.Row
+                  id={c.id}
+                  key={c.id}
+                  position={index}
+                  tone={c.status === "PENDING" ? "critical" : undefined}
+                  onClick={() => navigate(`/app/conversations/${c.id}`)}
+                >
                   <IndexTable.Cell>
-                    <Text as="span" fontWeight="semibold">
-                      访客 {c.visitorId.slice(0, 8)}
-                    </Text>
+                    <BlockStack gap="100">
+                      <Link
+                        to={`/app/conversations/${c.id}`}
+                        data-primary-link
+                        style={{ color: "inherit", textDecoration: "none" }}
+                      >
+                        <Text as="span" fontWeight="semibold">
+                          访客 {c.visitorId.slice(0, 8)}
+                        </Text>
+                      </Link>
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        {c.visitorId}
+                      </Text>
+                    </BlockStack>
                   </IndexTable.Cell>
                   <IndexTable.Cell>
                     <Badge tone={c.status === "PENDING" ? "critical" : "success"}>

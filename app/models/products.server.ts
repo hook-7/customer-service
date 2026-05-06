@@ -14,6 +14,44 @@ export type ProductCard = {
   available: boolean;
 };
 
+export type ProductSyncOptions = {
+  finalFailure?: boolean;
+  scheduleRetryOnFailure?: boolean;
+};
+
+const RETRYABLE_JOB_STATUSES = ["PENDING", "RUNNING", "FAILED"] as const;
+
+function productGidFromJobPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object") return null;
+  const value = (payload as { productGid?: unknown }).productGid;
+  return typeof value === "string" && value ? value : null;
+}
+
+async function enqueueProductRetryJob(shop: string, productGid: string) {
+  const jobs = await prisma.backgroundJob.findMany({
+    where: {
+      shop,
+      type: "PRODUCT_UPSERT",
+      status: { in: [...RETRYABLE_JOB_STATUSES] },
+    },
+    select: { payload: true },
+    take: 100,
+  });
+  const alreadyQueued = jobs.some(
+    (job) => productGidFromJobPayload(job.payload) === productGid,
+  );
+  if (alreadyQueued) return null;
+
+  return prisma.backgroundJob.create({
+    data: {
+      shop,
+      type: "PRODUCT_UPSERT",
+      payload: { productGid },
+      runAfter: new Date(Date.now() + 60_000),
+    },
+  });
+}
+
 export async function listAvailableProductSnapshots(shop: string, take = 20) {
   return prisma.productSnapshot.findMany({
     where: { shop, available: true, published: true },
@@ -121,6 +159,7 @@ export async function syncProductSnapshotToHermes(
   shop: string,
   productGid: string,
   action: "UPSERT_PRODUCT" | "DELETE_PRODUCT" = "UPSERT_PRODUCT",
+  options: ProductSyncOptions = {},
 ) {
   const product = await prisma.productSnapshot.findUnique({
     where: { shop_productGid: { shop, productGid } },
@@ -153,11 +192,20 @@ export async function syncProductSnapshotToHermes(
           hermesSyncedAt: new Date(),
           hermesError: null,
         }
-      : {
-          hermesSyncStatus: "FAILED",
-          hermesError: result.error || "Hermes API did not accept the product update.",
-        },
+      : options.finalFailure
+        ? {
+            hermesSyncStatus: "FAILED",
+            hermesError: result.error || "Hermes API did not accept the product update.",
+          }
+        : {
+            hermesSyncStatus: "PENDING",
+            hermesError: result.error || "Hermes API did not accept the product update.",
+          },
   });
+
+  if (!result.ok && !options.finalFailure && options.scheduleRetryOnFailure !== false) {
+    await enqueueProductRetryJob(shop, productGid);
+  }
 
   return result.ok;
 }

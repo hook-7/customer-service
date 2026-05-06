@@ -2,6 +2,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 
 import {
   markProductDeleted,
+  type ProductSyncOptions,
   syncProductSnapshotToHermes,
   upsertProductSnapshot,
 } from "../models/products.server";
@@ -141,7 +142,15 @@ async function graphql<T>(
   return (await response.json()) as T;
 }
 
-export async function syncShopifyProductNode(shop: string, product: ProductNode) {
+type ShopifyProductSyncOptions = ProductSyncOptions & {
+  throwOnHermesFailure?: boolean;
+};
+
+export async function syncShopifyProductNode(
+  shop: string,
+  product: ProductNode,
+  options: ShopifyProductSyncOptions = {},
+) {
   const defaultVariant = chooseDefaultVariant(product);
   const price = defaultVariant?.price || product.priceRangeV2?.minVariantPrice?.amount || null;
   const currencyCode = product.priceRangeV2?.minVariantPrice?.currencyCode || null;
@@ -163,7 +172,15 @@ export async function syncShopifyProductNode(shop: string, product: ProductNode)
     sourceUpdatedAt: product.updatedAt ? new Date(product.updatedAt) : null,
   });
 
-  await syncProductSnapshotToHermes(shop, snapshot.productGid);
+  const hermesSynced = await syncProductSnapshotToHermes(
+    shop,
+    snapshot.productGid,
+    "UPSERT_PRODUCT",
+    options,
+  );
+  if (!hermesSynced && options.throwOnHermesFailure) {
+    throw new Error("Hermes product knowledge sync failed.");
+  }
   return snapshot;
 }
 
@@ -192,7 +209,11 @@ export async function syncAllPublishedProducts(admin: AdminApiContext, shop: str
   return { synced };
 }
 
-export async function syncProductByGid(shop: string, productGid: string) {
+export async function syncProductByGid(
+  shop: string,
+  productGid: string,
+  options: ShopifyProductSyncOptions = {},
+) {
   const { admin } = await unauthenticated.admin(shop);
   const data = await graphql<ProductResponse>(admin, PRODUCT_QUERY, { id: productGid });
   if (data.errors) throw new Error("Shopify product query failed.");
@@ -200,14 +221,34 @@ export async function syncProductByGid(shop: string, productGid: string) {
   const product = data.data?.product;
   if (!product) {
     await markProductDeleted(shop, productGid);
-    await syncProductSnapshotToHermes(shop, productGid, "DELETE_PRODUCT");
+    const hermesSynced = await syncProductSnapshotToHermes(
+      shop,
+      productGid,
+      "DELETE_PRODUCT",
+      options,
+    );
+    if (!hermesSynced && options.throwOnHermesFailure) {
+      throw new Error("Hermes product knowledge delete sync failed.");
+    }
     return null;
   }
 
-  return syncShopifyProductNode(shop, product);
+  return syncShopifyProductNode(shop, product, options);
 }
 
-export async function deleteProductKnowledge(shop: string, productGid: string) {
+export async function deleteProductKnowledge(
+  shop: string,
+  productGid: string,
+  options: ShopifyProductSyncOptions = {},
+) {
   await markProductDeleted(shop, productGid);
-  await syncProductSnapshotToHermes(shop, productGid, "DELETE_PRODUCT");
+  const hermesSynced = await syncProductSnapshotToHermes(
+    shop,
+    productGid,
+    "DELETE_PRODUCT",
+    options,
+  );
+  if (!hermesSynced && options.throwOnHermesFailure) {
+    throw new Error("Hermes product knowledge delete sync failed.");
+  }
 }

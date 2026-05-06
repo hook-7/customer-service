@@ -17,7 +17,6 @@ import {
   Box,
   Button,
   Card,
-  InlineGrid,
   InlineStack,
   Page,
   Text,
@@ -189,7 +188,10 @@ function ProductCards({ metadata }: { metadata: unknown }) {
   if (!products.length) return null;
 
   return (
-    <InlineGrid columns={{ xs: 1, sm: 2, md: 3 }} gap="300">
+    <BlockStack gap="200">
+      <Text as="p" variant="bodySm" tone="subdued">
+        AI 推荐了 {products.length} 个商品
+      </Text>
       {products.map((product) => (
         <Box
           key={product.productGid}
@@ -197,39 +199,44 @@ function ProductCards({ metadata }: { metadata: unknown }) {
           borderRadius="200"
           background="bg-surface-secondary"
         >
-          <BlockStack gap="200">
+          <InlineStack gap="300" blockAlign="start" wrap={false}>
             {product.imageUrl ? (
               <img
                 src={product.imageUrl}
                 alt={product.title}
                 style={{
-                  width: "100%",
-                  aspectRatio: "4 / 3",
+                  width: 72,
+                  height: 72,
                   objectFit: "cover",
                   borderRadius: 6,
+                  flex: "0 0 72px",
                 }}
               />
             ) : null}
-            <Text as="h3" variant="headingSm">
-              {product.title}
-            </Text>
-            {product.price ? (
-              <Text as="p" variant="bodySm" tone="subdued">
-                {product.price} {product.currencyCode || ""}
-              </Text>
-            ) : null}
-            {product.reason ? (
-              <Text as="p" variant="bodySm">
-                {product.reason}
-              </Text>
-            ) : null}
-            <Badge tone={product.available ? "success" : "critical"}>
-              {product.available ? "可加购" : "不可售"}
-            </Badge>
-          </BlockStack>
+            <BlockStack gap="150">
+              <InlineStack gap="200" blockAlign="center">
+                <Text as="h3" variant="headingSm">
+                  {product.title}
+                </Text>
+                <Badge tone={product.available ? "success" : "critical"}>
+                  {product.available ? "可加购" : "不可售"}
+                </Badge>
+              </InlineStack>
+              {product.price ? (
+                <Text as="p" variant="bodySm" tone="subdued">
+                  {product.price} {product.currencyCode || ""}
+                </Text>
+              ) : null}
+              {product.reason ? (
+                <Text as="p" variant="bodySm">
+                  {product.reason}
+                </Text>
+              ) : null}
+            </BlockStack>
+          </InlineStack>
         </Box>
       ))}
-    </InlineGrid>
+    </BlockStack>
   );
 }
 
@@ -437,6 +444,13 @@ export default function ConversationDetail() {
     "|" +
     (msgs.length ? msgs[msgs.length - 1].createdAt : "");
 
+  const scrollToBottom = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    atBottomRef.current = true;
+  }, []);
+
   useIsomorphicLayoutEffect(() => {
     const el = listRef.current;
     if (!el || lastSigRef.current === sig) return;
@@ -498,78 +512,86 @@ export default function ConversationDetail() {
           </InlineStack>
         </Card>
 
-        <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-          <BlockStack gap="400">
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">
-                  消息记录
-                </Text>
-                <div
-                  ref={listRef}
-                  style={{
-                    maxHeight: "58vh",
-                    overflowY: "auto",
-                    overscrollBehavior: "contain",
-                  }}
-                  onScroll={() => {
-                    const el = listRef.current;
-                    if (!el) return;
-                    atBottomRef.current =
-                      el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-                  }}
-                >
-                  <BlockStack gap="300">
-                    {msgs.length === 0 ? (
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        还没有消息。
-                      </Text>
-                    ) : (
-                      msgs.map((m) => (
-                        <Box
-                          key={m.id}
-                          padding="300"
-                          background={
-                            m.sender === "VISITOR"
-                              ? undefined
-                              : "bg-surface-secondary"
-                          }
-                          borderRadius="200"
-                        >
-                          <BlockStack gap="200">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1.6fr) minmax(320px, 0.85fr)",
+            gap: "16px",
+            alignItems: "start",
+          }}
+        >
+          <Card>
+            <BlockStack gap="400">
+              <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+                <BlockStack gap="100">
+                  <Text as="h2" variant="headingMd">
+                    消息记录
+                  </Text>
+                  <Text as="p" variant="bodySm" tone="subdued">
+                    每 4 秒自动刷新；有新消息时会保持当前位置，方便继续阅读。
+                  </Text>
+                </BlockStack>
+                <Button onClick={scrollToBottom}>滚到底部</Button>
+              </InlineStack>
+              <div
+                ref={listRef}
+                style={{
+                  minHeight: 420,
+                  maxHeight: "66vh",
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  paddingRight: 4,
+                }}
+                onScroll={() => {
+                  const el = listRef.current;
+                  if (!el) return;
+                  atBottomRef.current =
+                    el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+                }}
+              >
+                <BlockStack gap="300">
+                  {msgs.length === 0 ? (
+                    <Text as="p" variant="bodyMd" tone="subdued">
+                      还没有消息。
+                    </Text>
+                  ) : (
+                    msgs.map((m) => (
+                      <Box
+                        key={m.id}
+                        padding="300"
+                        background={
+                          m.sender === "VISITOR"
+                            ? undefined
+                            : "bg-surface-secondary"
+                        }
+                        borderRadius="200"
+                      >
+                        <BlockStack gap="200">
+                          <InlineStack align="space-between" gap="200">
                             <Text as="p" variant="bodySm" tone="subdued">
-                              {senderLabel(m.sender)} ·{" "}
+                              {senderLabel(m.sender)}
+                            </Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
                               {m.optimistic
                                 ? "发送中"
                                 : new Date(m.createdAt).toLocaleString()}
                             </Text>
-                            {m.kind === "PRODUCT_RECOMMENDATION" ? (
-                              <ProductCards metadata={m.metadata} />
-                            ) : (
-                              <Text as="p" variant="bodyMd">
-                                {m.body}
-                              </Text>
-                            )}
-                          </BlockStack>
-                        </Box>
-                      ))
-                    )}
-                  </BlockStack>
-                </div>
-              </BlockStack>
-            </Card>
+                          </InlineStack>
+                          {m.kind === "PRODUCT_RECOMMENDATION" ? (
+                            <ProductCards metadata={m.metadata} />
+                          ) : (
+                            <Text as="p" variant="bodyMd">
+                              {m.body}
+                            </Text>
+                          )}
+                        </BlockStack>
+                      </Box>
+                    ))
+                  )}
+                </BlockStack>
+              </div>
 
-            <div
-              style={{
-                position: "sticky",
-                bottom: 0,
-                zIndex: 1,
-                background: "var(--p-color-bg, #f1f1f1)",
-                paddingBlock: "8px",
-              }}
-              onKeyDown={onKeyDown}
-            >
-              <Card>
+              <div onKeyDown={onKeyDown}>
                 <BlockStack gap="300">
                   <TextField
                     label="人工回复"
@@ -578,9 +600,12 @@ export default function ConversationDetail() {
                     multiline={4}
                     autoComplete="off"
                     disabled={busy && !sending}
-                    helpText="Ctrl/Cmd + Enter 发送。发送后会自动暂停 AI 并标记为已处理。"
+                    helpText="Ctrl/Cmd + Enter 发送。发送后自动暂停 AI。"
                   />
-                  <InlineStack>
+                  <InlineStack align="space-between" blockAlign="center" gap="300" wrap>
+                    <Text as="p" variant="bodySm" tone="subdued">
+                      发送人工回复后，会话会自动标记为已处理。
+                    </Text>
                     <Button
                       onClick={handleSend}
                       variant="primary"
@@ -591,9 +616,9 @@ export default function ConversationDetail() {
                     </Button>
                   </InlineStack>
                 </BlockStack>
-              </Card>
-            </div>
-          </BlockStack>
+              </div>
+            </BlockStack>
+          </Card>
 
           <BlockStack gap="400">
             <Card>
@@ -698,7 +723,7 @@ export default function ConversationDetail() {
               </BlockStack>
             </Card>
           </BlockStack>
-        </InlineGrid>
+        </div>
       </BlockStack>
     </Page>
   );

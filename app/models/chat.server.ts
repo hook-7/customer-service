@@ -1,6 +1,17 @@
 import type { Prisma } from "@prisma/client";
 
 import prisma from "../db.server";
+import {
+  normalizeTagLabel,
+  parseAiFilter,
+  parseConversationStatus,
+} from "../services/admin-conversations.server";
+
+export {
+  normalizeTagLabel,
+  parseAiFilter,
+  parseConversationStatus,
+} from "../services/admin-conversations.server";
 
 /** Prisma enum values; avoid runtime imports from `@prisma/client` (Vite SSR / CJS). */
 export type ChatSender = "VISITOR" | "STAFF" | "AI";
@@ -58,22 +69,6 @@ function messageStatus(sender: ChatSender): ConversationStatus {
 function preview(body: string) {
   const normalized = body.replace(/\s+/g, " ").trim();
   return normalized.length > 240 ? `${normalized.slice(0, 237)}...` : normalized;
-}
-
-export function normalizeTagLabel(value: string) {
-  return value.replace(/\s+/g, " ").trim().slice(0, 32);
-}
-
-export function parseConversationStatus(
-  value: string | null,
-): ConversationStatus | "ALL" {
-  if (value === "PENDING" || value === "HANDLED") return value;
-  return "ALL";
-}
-
-export function parseAiFilter(value: string | null): "on" | "off" | "all" {
-  if (value === "on" || value === "off") return value;
-  return "all";
 }
 
 export async function getOrCreateConversation(shop: string, visitorId: string) {
