@@ -44,7 +44,7 @@ api_version = "2026-04"
   uri = "/webhooks/shop/redact"
 
 [access_scopes]
-scopes = "read_products,write_app_proxy"
+scopes = "read_products,write_app_proxy,read_own_subscription_contracts"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
