@@ -2,7 +2,7 @@
 
 client_id = "755ed3e44376cc56ff0a932d1139101b"
 name = "AI Product Support"
-application_url = "https://shopify.0-9.fun"
+application_url = "https://shopify-app.livall.com"
 embedded = true
 
 [build]
@@ -49,7 +49,7 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://shopify.0-9.fun/auth/callback" ]
+redirect_urls = [ "https://shopify-app.livall.com/auth/callback" ]
 
 [app_proxy]
 url = "/apps/cs"

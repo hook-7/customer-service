@@ -1,4 +1,8 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import {
+  json as remixJson,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
 
 import {
   appendMessage,
@@ -30,13 +34,7 @@ function fallbackMessage(error?: string) {
 }
 
 function json(data: unknown, init?: ResponseInit) {
-  return Response.json(data, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      ...init?.headers,
-    },
-  });
+  return remixJson(data, init);
 }
 
 async function getShopFromProxy(request: Request) {

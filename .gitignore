@@ -16,6 +16,7 @@ node_modules
 
 
 /extensions/*/dist
+/extensions/*/manifest.json
 
 # Ignore shopify files created during app dev
 .shopify/*

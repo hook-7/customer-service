@@ -4,14 +4,16 @@ import {
   runHermesLoadTest,
 } from "../app/services/hermes.load-test.server.ts";
 
-function readArg(name, fallback) {
+function readArg(name: string, fallback: string): string;
+function readArg(name: string, fallback: undefined): string | undefined;
+function readArg(name: string, fallback?: string) {
   const prefix = `--${name}=`;
   const match = process.argv.slice(2).find((arg) => arg.startsWith(prefix));
   if (!match) return fallback;
   return match.slice(prefix.length);
 }
 
-function hasFlag(name) {
+function hasFlag(name: string) {
   return process.argv.slice(2).includes(`--${name}`);
 }
 

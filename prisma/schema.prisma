@@ -171,3 +171,26 @@ model ChatRateLimit {
   @@unique([shop, visitorId])
   @@index([shop, windowStart])
 }
+
+model FatherDayCard {
+  id             String   @id @default(cuid())
+  shop           String
+  orderId        String
+  orderLegacyId  String
+  orderNumber    String?
+  checkoutToken  String
+  fatherName     String
+  message        String
+  fatherEmail    String
+  customerId     String?
+  customerEmail  String?
+  customerName   String?
+  source         String   @default("thank_you_extension")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([shop, orderId])
+  @@index([shop, createdAt])
+  @@index([shop, customerEmail])
+  @@index([fatherEmail])
+}

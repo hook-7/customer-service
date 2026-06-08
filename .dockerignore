@@ -1,3 +1,11 @@
 .cache
+.git
+.github
+.shopify
+.env
+.env.*
 build
 node_modules
+tmp
+extensions/*/dist
+extensions/*/manifest.json

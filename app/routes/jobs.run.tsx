@@ -1,9 +1,13 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import {
+  json,
+  type ActionFunctionArgs,
+  type LoaderFunctionArgs,
+} from "@remix-run/node";
 
 import { processPendingBackgroundJobs } from "../services/background-jobs.server";
 
 function unauthorized() {
-  return Response.json({ error: "unauthorized" }, { status: 401 });
+  return json({ error: "unauthorized" }, { status: 401 });
 }
 
 function backgroundJobSecret() {
@@ -33,5 +37,5 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const url = new URL(request.url);
   const limit = Number(url.searchParams.get("limit") || "10");
   const result = await processPendingBackgroundJobs(limit);
-  return Response.json({ ok: true, ...result });
+  return json({ ok: true, ...result });
 };
