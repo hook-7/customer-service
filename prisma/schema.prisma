@@ -173,21 +173,25 @@ model ChatRateLimit {
 }
 
 model FatherDayCard {
-  id             String   @id @default(cuid())
-  shop           String
-  orderId        String
-  orderLegacyId  String
-  orderNumber    String?
-  checkoutToken  String
-  fatherName     String
-  message        String
-  fatherEmail    String
-  customerId     String?
-  customerEmail  String?
-  customerName   String?
-  source         String   @default("thank_you_extension")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                              String   @id @default(cuid())
+  shop                            String
+  orderId                         String
+  orderLegacyId                   String
+  orderNumber                     String?
+  checkoutToken                   String
+  fatherName                      String
+  message                         String
+  fatherEmail                     String
+  senderName                      String   @default("")
+  recipientRelationship           String   @default("dad")
+  includeFounderLetter            Boolean  @default(false)
+  founderLetterSenderRelationship String?
+  customerId                      String?
+  customerEmail                   String?
+  customerName                    String?
+  source                          String   @default("thank_you_extension")
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 
   @@unique([shop, orderId])
   @@index([shop, createdAt])

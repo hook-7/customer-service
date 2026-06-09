@@ -29,9 +29,10 @@ network_access = true
 # your extension. Learn more:
 # https://shopify.dev/docs/api/checkout-ui-extensions/latest/configuration#settings-definition
 
-# [extensions.settings]
-# [[extensions.settings.fields]]
-# key = "banner_title"
-# type = "single_line_text_field"
-# name = "Banner title"
-# description = "Enter a title for the banner"
+[extensions.settings]
+
+[[extensions.settings.fields]]
+key = "api_base_url"
+type = "single_line_text_field"
+name = "API base URL"
+description = "Backend origin for saving Father's Day e-card submissions, such as https://shopify-app.livall.com or the Shopify CLI tunnel URL used in development."

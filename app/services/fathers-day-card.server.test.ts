@@ -17,6 +17,10 @@ const validSubmission = {
   fatherName: "  Dad   Smith  ",
   message: "  Happy   Father's   Day!  ",
   fatherEmail: "  DAD@example.COM ",
+  senderName: "  From   Tracy  ",
+  recipientRelationship: "  PAPA  ",
+  includeFounderLetter: false,
+  founderLetterSenderRelationship: "  SON  ",
   customerId: "gid://shopify/Customer/9876543210",
   customerEmail: "  BUYER@example.COM ",
   customerName: "  Yang   Chao ",
@@ -38,10 +42,49 @@ test("validateFatherDayCardSubmission normalizes valid card details", () => {
     fatherName: "Dad Smith",
     message: "Happy Father's Day!",
     fatherEmail: "dad@example.com",
+    senderName: "From Tracy",
+    recipientRelationship: "papa",
+    includeFounderLetter: false,
+    founderLetterSenderRelationship: null,
     customerId: "gid://shopify/Customer/9876543210",
     customerEmail: "buyer@example.com",
     customerName: "Yang Chao",
   });
+});
+
+test("validateFatherDayCardSubmission accepts founder letter sender relationships", () => {
+  for (const relationship of ["son", "daughter", "wife"]) {
+    const result = validateFatherDayCardSubmission({
+      ...validSubmission,
+      includeFounderLetter: true,
+      founderLetterSenderRelationship: `  ${relationship.toUpperCase()}  `,
+    });
+
+    assert.equal(result.ok, true);
+    if (!result.ok) throw new Error("Expected valid card details");
+
+    assert.equal(result.value.includeFounderLetter, true);
+    assert.equal(result.value.founderLetterSenderRelationship, relationship);
+  }
+});
+
+test("validateFatherDayCardSubmission accepts founder letter without a family e-card", () => {
+  const result = validateFatherDayCardSubmission({
+    ...validSubmission,
+    includeCard: false,
+    message: "",
+    recipientRelationship: "",
+    includeFounderLetter: true,
+    founderLetterSenderRelationship: "daughter",
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) throw new Error("Expected valid founder letter details");
+
+  assert.equal(result.value.message, "");
+  assert.equal(result.value.recipientRelationship, "dad");
+  assert.equal(result.value.includeFounderLetter, true);
+  assert.equal(result.value.founderLetterSenderRelationship, "daughter");
 });
 
 test("validateFatherDayCardSubmission rejects missing or malformed fields", () => {
@@ -55,6 +98,19 @@ test("validateFatherDayCardSubmission rejects missing or malformed fields", () =
       orderId: "1234567890",
     }),
     { ok: false, error: "invalid_order_id", field: "orderId" },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      includeCard: false,
+      message: "",
+      recipientRelationship: "",
+      includeFounderLetter: false,
+    }),
+    {
+      ok: false,
+      error: "message_option_required",
+    },
   );
   assert.deepEqual(
     validateFatherDayCardSubmission({
@@ -87,6 +143,74 @@ test("validateFatherDayCardSubmission rejects missing or malformed fields", () =
       ok: false,
       error: "father_email_invalid",
       field: "fatherEmail",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      senderName: "",
+    }),
+    {
+      ok: false,
+      error: "sender_name_required",
+      field: "senderName",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      senderName: "x".repeat(81),
+    }),
+    {
+      ok: false,
+      error: "sender_name_too_long",
+      field: "senderName",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      recipientRelationship: "",
+    }),
+    {
+      ok: false,
+      error: "recipient_relationship_required",
+      field: "recipientRelationship",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      recipientRelationship: "uncle",
+    }),
+    {
+      ok: false,
+      error: "recipient_relationship_invalid",
+      field: "recipientRelationship",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      includeFounderLetter: true,
+      founderLetterSenderRelationship: "",
+    }),
+    {
+      ok: false,
+      error: "founder_letter_sender_relationship_required",
+      field: "founderLetterSenderRelationship",
+    },
+  );
+  assert.deepEqual(
+    validateFatherDayCardSubmission({
+      ...validSubmission,
+      includeFounderLetter: true,
+      founderLetterSenderRelationship: "brother",
+    }),
+    {
+      ok: false,
+      error: "founder_letter_sender_relationship_invalid",
+      field: "founderLetterSenderRelationship",
     },
   );
 });
@@ -126,6 +250,10 @@ test("buildFatherDayCardRecord stores stable database payload", () => {
       fatherName: "Dad Smith",
       message: "Happy Father's Day!",
       fatherEmail: "dad@example.com",
+      senderName: "From Tracy",
+      recipientRelationship: "papa",
+      includeFounderLetter: false,
+      founderLetterSenderRelationship: null,
       customerId: "gid://shopify/Customer/9876543210",
       customerEmail: "buyer@example.com",
       customerName: "Yang Chao",
@@ -171,6 +299,10 @@ test("saveFatherDayCardSubmission upserts by shop and order", async () => {
       fatherName: "Dad Smith",
       message: "Happy Father's Day!",
       fatherEmail: "dad@example.com",
+      senderName: "From Tracy",
+      recipientRelationship: "papa",
+      includeFounderLetter: false,
+      founderLetterSenderRelationship: null,
       customerId: "gid://shopify/Customer/9876543210",
       customerEmail: "buyer@example.com",
       customerName: "Yang Chao",
@@ -183,6 +315,10 @@ test("saveFatherDayCardSubmission upserts by shop and order", async () => {
       fatherName: "Dad Smith",
       message: "Happy Father's Day!",
       fatherEmail: "dad@example.com",
+      senderName: "From Tracy",
+      recipientRelationship: "papa",
+      includeFounderLetter: false,
+      founderLetterSenderRelationship: null,
       customerId: "gid://shopify/Customer/9876543210",
       customerEmail: "buyer@example.com",
       customerName: "Yang Chao",

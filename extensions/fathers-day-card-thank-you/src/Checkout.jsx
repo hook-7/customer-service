@@ -1,14 +1,30 @@
 // @ts-check
 import "@shopify/ui-extensions/preact";
-import { useCustomer, useEmail } from "@shopify/ui-extensions/checkout/preact";
+import {
+  useCustomer,
+  useEmail,
+  useSettings,
+} from "@shopify/ui-extensions/checkout/preact";
 import { render } from "preact";
 import { useMemo, useState } from "preact/hooks";
 
-const API_BASE_URL = "https://shopify-app.livall.com";
 const API_PATH = "/api/fathers-day-card";
 const NAME_MAX_LENGTH = 80;
 const EMAIL_MAX_LENGTH = 254;
 const MESSAGE_MAX_LENGTH = 300;
+const DEFAULT_RELATIONSHIP = "dad";
+const RECIPIENT_RELATIONSHIPS = [
+  ["dad", "Dad"],
+  ["papa", "Papa"],
+  ["grandpa", "Grandpa"],
+  ["husband", "Husband"],
+  ["friend", "Friend"],
+];
+const FOUNDER_LETTER_SENDER_RELATIONSHIPS = [
+  ["son", "Son"],
+  ["daughter", "Daughter"],
+  ["wife", "Wife"],
+];
 
 const ERROR_MESSAGES = {
   invalid_body: "Please check the card details and try again.",
@@ -16,13 +32,22 @@ const ERROR_MESSAGES = {
   invalid_order_id: "We could not confirm this order yet. Please refresh the page.",
   missing_checkout_token:
     "We could not confirm this checkout yet. Please refresh the page.",
-  father_name_required: "Enter your father's name.",
+  message_option_required: "Choose at least one Father's Day message.",
+  father_name_required: "Enter the recipient's name.",
   father_name_too_long: "Use 80 characters or fewer.",
   message_required: "Enter a message for the card.",
   message_too_long: "Use 300 characters or fewer.",
-  father_email_required: "Enter your father's email.",
+  father_email_required: "Enter the recipient's email.",
   father_email_invalid: "Enter a valid email address.",
   father_email_too_long: "Use 254 characters or fewer.",
+  sender_name_required: "Enter who the card is from.",
+  sender_name_too_long: "Use 80 characters or fewer.",
+  recipient_relationship_required: "Choose who this card is for.",
+  recipient_relationship_invalid: "Choose who this card is for.",
+  founder_letter_sender_relationship_required:
+    "Choose your relationship to the recipient.",
+  founder_letter_sender_relationship_invalid:
+    "Choose your relationship to the recipient.",
   card_save_failed:
     "We could not save the card details. Please try again in a moment.",
 };
@@ -40,6 +65,8 @@ function FatherDayCardForm() {
   const checkoutToken = checkout.checkoutToken.value;
   const orderId = orderConfirmation?.order.id ?? "";
   const orderNumber = orderConfirmation?.number ?? "";
+  const settings = useSettings();
+  const apiConfig = resolveApiBaseUrl(settings.api_base_url);
   const customer = useCustomer();
   const buyerEmail = useEmail();
   const customerEmail = buyerEmail ?? customer?.email ?? "";
@@ -48,31 +75,58 @@ function FatherDayCardForm() {
     [customer?.firstName, customer?.lastName].filter(Boolean).join(" ");
   const customerId = customer?.id ?? "";
 
+  const [includeCard, setIncludeCard] = useState(false);
   const [fatherName, setFatherName] = useState("");
   const [message, setMessage] = useState("");
   const [fatherEmail, setFatherEmail] = useState("");
+  const [senderName, setSenderName] = useState(customerName);
+  const [recipientRelationship, setRecipientRelationship] =
+    useState(DEFAULT_RELATIONSHIP);
+  const [includeFounderLetter, setIncludeFounderLetter] = useState(false);
+  const [
+    founderLetterSenderRelationship,
+    setFounderLetterSenderRelationship,
+  ] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [fieldError, setFieldError] = useState("");
 
   const isSubmitting = status === "submitting";
   const isSubmitted = status === "submitted";
+  const hasSelectedOption = includeCard || includeFounderLetter;
   const canSubmit = useMemo(
     () =>
       Boolean(
         orderId &&
           checkoutToken &&
+          hasSelectedOption &&
           fatherName.trim() &&
-          message.trim() &&
-          fatherEmail.trim(),
+          fatherEmail.trim() &&
+          senderName.trim() &&
+          (!includeCard || (message.trim() && recipientRelationship)) &&
+          (!includeFounderLetter || founderLetterSenderRelationship) &&
+          !apiConfig.error,
       ),
-    [checkoutToken, fatherEmail, fatherName, message, orderId],
+    [
+      checkoutToken,
+      fatherEmail,
+      founderLetterSenderRelationship,
+      fatherName,
+      hasSelectedOption,
+      includeFounderLetter,
+      includeCard,
+      message,
+      orderId,
+      apiConfig.error,
+      recipientRelationship,
+      senderName,
+    ],
   );
 
   if (isSubmitted) {
     return (
-      <s-banner heading="Father's Day card saved" tone="success">
-        The card details have been added to this order.
+      <s-banner heading="Father's Day e-card saved" tone="success">
+        We'll send the card on Father's Day, June 21.
       </s-banner>
     );
   }
@@ -81,68 +135,173 @@ function FatherDayCardForm() {
     return (
       <s-banner heading="Card details unavailable" tone="warning">
         We could not load this order yet. Refresh this page before adding a
-        Father's Day card.
+        Father's Day e-card.
       </s-banner>
     );
   }
 
   return (
-    <s-section heading="Father's Day card">
+    <s-section>
       <s-stack gap="base">
-        <s-text>
-          Add your Father's Day card details.
-        </s-text>
-        {error ? (
-          <s-banner heading="Card not saved" tone="critical">
-            {error}
-          </s-banner>
+        <s-checkbox
+          label="Is this a gift? Send a free Father's Day e-card (Optional)"
+          checked={includeCard}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const checked = readCheckedValue(event);
+            setIncludeCard(checked);
+            if (!checked) {
+              clearError();
+            }
+          }}
+        />
+        <s-checkbox
+          label="Add a personal letter from our Founder"
+          checked={includeFounderLetter}
+          disabled={isSubmitting}
+          onChange={(event) => {
+            const checked = readCheckedValue(event);
+            setIncludeFounderLetter(checked);
+            if (!checked) {
+              setFounderLetterSenderRelationship("");
+            }
+            clearError();
+          }}
+        />
+        {hasSelectedOption ? (
+          <s-stack gap="base">
+            {error ? (
+              <s-banner heading="Card not saved" tone="critical">
+                {error}
+              </s-banner>
+            ) : null}
+            {apiConfig.error ? (
+              <s-banner heading="Card saving unavailable" tone="critical">
+                {apiConfig.error}
+              </s-banner>
+            ) : null}
+            <s-text-field
+              label="Recipient's Name"
+              placeholder='e.g. "Dad", "Papa John"'
+              maxLength={NAME_MAX_LENGTH}
+              required
+              value={fatherName}
+              disabled={isSubmitting}
+              error={fieldError === "fatherName" ? error : undefined}
+              onInput={(event) => {
+                setFatherName(readFieldValue(event));
+                clearError();
+              }}
+            />
+            <s-email-field
+              label="Send to Email"
+              placeholder="their email address"
+              maxLength={EMAIL_MAX_LENGTH}
+              required
+              value={fatherEmail}
+              disabled={isSubmitting}
+              error={fieldError === "fatherEmail" ? error : undefined}
+              onInput={(event) => {
+                setFatherEmail(readFieldValue(event));
+                clearError();
+              }}
+            />
+            <s-text-field
+              label="From"
+              placeholder='your name, e.g. "From Tracy"'
+              maxLength={NAME_MAX_LENGTH}
+              required
+              value={senderName}
+              disabled={isSubmitting}
+              error={fieldError === "senderName" ? error : undefined}
+              onInput={(event) => {
+                setSenderName(readFieldValue(event));
+                clearError();
+              }}
+            />
+            {includeCard ? (
+              <>
+                <s-text-area
+                  label="Your Message"
+                  placeholder="write what you'd like to say"
+                  maxLength={MESSAGE_MAX_LENGTH}
+                  rows={4}
+                  required
+                  value={message}
+                  disabled={isSubmitting}
+                  error={fieldError === "message" ? error : undefined}
+                  onInput={(event) => {
+                    setMessage(readFieldValue(event));
+                    clearError();
+                  }}
+                />
+                <s-select
+                  label="This card is for my..."
+                  name="recipientRelationship"
+                  value={recipientRelationship}
+                  required
+                  disabled={isSubmitting}
+                  error={
+                    fieldError === "recipientRelationship" ? error : undefined
+                  }
+                  onChange={(event) => {
+                    const value = readSelectValue(event);
+                    if (typeof value === "string") {
+                      setRecipientRelationship(value);
+                      clearError();
+                    }
+                  }}
+                >
+                  {RECIPIENT_RELATIONSHIPS.map(([value, label]) => (
+                    <s-option key={value} value={value}>
+                      {label}
+                    </s-option>
+                  ))}
+                </s-select>
+              </>
+            ) : null}
+            {includeFounderLetter ? (
+              <s-select
+                label="I am his..."
+                name="founderLetterSenderRelationship"
+                placeholder="Select one"
+                value={founderLetterSenderRelationship}
+                required
+                disabled={isSubmitting}
+                error={
+                  fieldError === "founderLetterSenderRelationship"
+                    ? error
+                    : undefined
+                }
+                onChange={(event) => {
+                  const value = readSelectValue(event);
+                  if (typeof value === "string") {
+                    setFounderLetterSenderRelationship(value);
+                    clearError();
+                  }
+                }}
+              >
+                {FOUNDER_LETTER_SENDER_RELATIONSHIPS.map(([value, label]) => (
+                  <s-option key={value} value={value}>
+                    {label}
+                  </s-option>
+                ))}
+              </s-select>
+            ) : null}
+            <s-text tone="neutral">
+              We'll send selected Father's Day messages on Father's Day, June
+              21.
+            </s-text>
+            <s-button
+              variant="primary"
+              loading={isSubmitting}
+              disabled={isSubmitting || !canSubmit}
+              onClick={submitCard}
+            >
+              Save Father's Day messages
+            </s-button>
+          </s-stack>
         ) : null}
-        <s-text-field
-          label="Father's name"
-          maxLength={NAME_MAX_LENGTH}
-          required
-          value={fatherName}
-          disabled={isSubmitting}
-          error={fieldError === "fatherName" ? error : undefined}
-          onInput={(event) => {
-            setFatherName(readFieldValue(event));
-            clearError();
-          }}
-        />
-        <s-text-area
-          label="Message"
-          maxLength={MESSAGE_MAX_LENGTH}
-          rows={4}
-          required
-          value={message}
-          disabled={isSubmitting}
-          error={fieldError === "message" ? error : undefined}
-          onInput={(event) => {
-            setMessage(readFieldValue(event));
-            clearError();
-          }}
-        />
-        <s-email-field
-          label="Father's email"
-          maxLength={EMAIL_MAX_LENGTH}
-          required
-          value={fatherEmail}
-          disabled={isSubmitting}
-          error={fieldError === "fatherEmail" ? error : undefined}
-          onInput={(event) => {
-            setFatherEmail(readFieldValue(event));
-            clearError();
-          }}
-        />
-        <s-button
-          variant="primary"
-          loading={isSubmitting}
-          disabled={isSubmitting || !canSubmit}
-          onClick={submitCard}
-        >
-          Save card details
-        </s-button>
-        {orderNumber ? <s-text tone="neutral">Order {orderNumber}</s-text> : null}
       </s-stack>
     </s-section>
   );
@@ -162,7 +321,7 @@ function FatherDayCardForm() {
 
     try {
       const token = await checkout.sessionToken.get();
-      const response = await fetch(buildApiUrl(), {
+      const response = await fetch(buildApiUrl(apiConfig.url), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -172,9 +331,16 @@ function FatherDayCardForm() {
           orderId,
           orderNumber,
           checkoutToken,
+          includeCard,
           fatherName,
-          message,
+          message: includeCard ? message : "",
           fatherEmail,
+          senderName,
+          recipientRelationship: includeCard ? recipientRelationship : "",
+          includeFounderLetter,
+          founderLetterSenderRelationship: includeFounderLetter
+            ? founderLetterSenderRelationship
+            : "",
           customerId,
           customerEmail,
           customerName,
@@ -191,21 +357,70 @@ function FatherDayCardForm() {
 
       setStatus("submitted");
     } catch (submitError) {
-      console.error("[Father's Day card submit failed]", submitError);
+      console.error("[Father's Day e-card submit failed]", submitError);
       setStatus("idle");
       setError("We could not save the card details. Please try again.");
     }
   }
 }
 
-function buildApiUrl() {
-  return new URL(API_PATH, API_BASE_URL).toString();
+/**
+ * @param {unknown} value
+ */
+function resolveApiBaseUrl(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return {
+      url: "",
+      error: "The e-card API base URL is not configured.",
+    };
+  }
+
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:") {
+      return {
+        url: "",
+        error: "The e-card API base URL must start with https://.",
+      };
+    }
+    return { url: url.origin, error: "" };
+  } catch {
+    return {
+      url: "",
+      error: "The e-card API base URL is not valid.",
+    };
+  }
+}
+
+/**
+ * @param {string} apiBaseUrl
+ */
+function buildApiUrl(apiBaseUrl) {
+  return new URL(API_PATH, apiBaseUrl).toString();
 }
 
 /**
  * @param {Event} event
  */
 function readFieldValue(event) {
+  const target = event.currentTarget;
+  return "value" in target && typeof target.value === "string"
+    ? target.value
+    : "";
+}
+
+/**
+ * @param {Event} event
+ */
+function readCheckedValue(event) {
+  const target = event.currentTarget;
+  return Boolean("checked" in target && target.checked);
+}
+
+/**
+ * @param {Event} event
+ */
+function readSelectValue(event) {
   const target = event.currentTarget;
   return "value" in target && typeof target.value === "string"
     ? target.value

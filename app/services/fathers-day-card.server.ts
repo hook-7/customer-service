@@ -4,6 +4,23 @@ export const CARD_EMAIL_MAX_LENGTH = 254;
 export const CARD_MESSAGE_MAX_LENGTH = 300;
 export const CUSTOMER_ID_MAX_LENGTH = 128;
 export const CUSTOMER_NAME_MAX_LENGTH = 200;
+export const RECIPIENT_RELATIONSHIPS = [
+  "dad",
+  "papa",
+  "grandpa",
+  "husband",
+  "friend",
+] as const;
+export const DEFAULT_RECIPIENT_RELATIONSHIP = "dad";
+export const FOUNDER_LETTER_SENDER_RELATIONSHIPS = [
+  "son",
+  "daughter",
+  "wife",
+] as const;
+
+export type RecipientRelationship = (typeof RECIPIENT_RELATIONSHIPS)[number];
+export type FounderLetterSenderRelationship =
+  (typeof FOUNDER_LETTER_SENDER_RELATIONSHIPS)[number];
 
 export type FatherDayCardSubmission = {
   orderId: string;
@@ -12,6 +29,10 @@ export type FatherDayCardSubmission = {
   fatherName: string;
   message: string;
   fatherEmail: string;
+  senderName: string;
+  recipientRelationship: RecipientRelationship;
+  includeFounderLetter: boolean;
+  founderLetterSenderRelationship: FounderLetterSenderRelationship | null;
   customerId: string;
   customerEmail: string;
   customerName: string;
@@ -26,6 +47,10 @@ export type FatherDayCardRecord = {
   fatherName: string;
   message: string;
   fatherEmail: string;
+  senderName: string;
+  recipientRelationship: RecipientRelationship;
+  includeFounderLetter: boolean;
+  founderLetterSenderRelationship: FounderLetterSenderRelationship | null;
   customerId: string | null;
   customerEmail: string | null;
   customerName: string | null;
@@ -36,13 +61,20 @@ export type ValidationErrorCode =
   | "invalid_body"
   | "invalid_order_id"
   | "missing_checkout_token"
+  | "message_option_required"
   | "father_name_required"
   | "father_name_too_long"
   | "message_required"
   | "message_too_long"
   | "father_email_required"
   | "father_email_invalid"
-  | "father_email_too_long";
+  | "father_email_too_long"
+  | "sender_name_required"
+  | "sender_name_too_long"
+  | "recipient_relationship_required"
+  | "recipient_relationship_invalid"
+  | "founder_letter_sender_relationship_required"
+  | "founder_letter_sender_relationship_invalid";
 
 export type ValidationResult =
   | { ok: true; value: FatherDayCardSubmission }
@@ -63,6 +95,10 @@ function readString(input: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
+function readBoolean(input: Record<string, unknown>, key: string) {
+  return input[key] === true;
+}
+
 function readOptionalString(
   input: Record<string, unknown>,
   key: string,
@@ -73,7 +109,7 @@ function readOptionalString(
 
 function validateField(
   value: string,
-  field: "fatherName" | "message" | "fatherEmail",
+  field: "fatherName" | "message" | "fatherEmail" | "senderName",
 ): ValidationResult | null {
   if (!value) {
     return {
@@ -100,9 +136,12 @@ function validateField(
   return null;
 }
 
-function snakeCaseField(field: "fatherName" | "message" | "fatherEmail") {
+function snakeCaseField(
+  field: "fatherName" | "message" | "fatherEmail" | "senderName",
+) {
   if (field === "fatherName") return "father_name";
   if (field === "fatherEmail") return "father_email";
+  if (field === "senderName") return "sender_name";
   return "message";
 }
 
@@ -113,6 +152,20 @@ function isValidEmail(value: string) {
 function normalizeOptionalEmail(value: string) {
   const email = value.toLowerCase().slice(0, CARD_EMAIL_MAX_LENGTH);
   return email && isValidEmail(email) ? email : "";
+}
+
+function isRecipientRelationship(
+  value: string,
+): value is RecipientRelationship {
+  return RECIPIENT_RELATIONSHIPS.includes(value as RecipientRelationship);
+}
+
+function isFounderLetterSenderRelationship(
+  value: string,
+): value is FounderLetterSenderRelationship {
+  return FOUNDER_LETTER_SENDER_RELATIONSHIPS.includes(
+    value as FounderLetterSenderRelationship,
+  );
 }
 
 export function validateFatherDayCardSubmission(
@@ -129,6 +182,17 @@ export function validateFatherDayCardSubmission(
   const fatherName = readString(input, "fatherName");
   const message = readString(input, "message");
   const fatherEmail = readString(input, "fatherEmail").toLowerCase();
+  const senderName = readString(input, "senderName");
+  const rawRecipientRelationship = readString(
+    input,
+    "recipientRelationship",
+  ).toLowerCase();
+  const explicitIncludeCard = readBoolean(input, "includeCard");
+  const includeFounderLetter = readBoolean(input, "includeFounderLetter");
+  const rawFounderLetterSenderRelationship = readString(
+    input,
+    "founderLetterSenderRelationship",
+  ).toLowerCase();
   const customerId = readOptionalString(input, "customerId", CUSTOMER_ID_MAX_LENGTH);
   const customerEmail = normalizeOptionalEmail(readString(input, "customerEmail"));
   const customerName = readOptionalString(
@@ -148,12 +212,16 @@ export function validateFatherDayCardSubmission(
       field: "checkoutToken",
     };
   }
+  const includeCard = explicitIncludeCard || Boolean(message);
+  if (!includeCard && !includeFounderLetter) {
+    return {
+      ok: false,
+      error: "message_option_required",
+    };
+  }
 
   const fatherNameError = validateField(fatherName, "fatherName");
   if (fatherNameError) return fatherNameError;
-
-  const messageError = validateField(message, "message");
-  if (messageError) return messageError;
 
   const fatherEmailError = validateField(fatherEmail, "fatherEmail");
   if (fatherEmailError) return fatherEmailError;
@@ -166,6 +234,52 @@ export function validateFatherDayCardSubmission(
     };
   }
 
+  const senderNameError = validateField(senderName, "senderName");
+  if (senderNameError) return senderNameError;
+
+  let recipientRelationship: RecipientRelationship =
+    DEFAULT_RECIPIENT_RELATIONSHIP;
+  if (includeCard) {
+    const messageError = validateField(message, "message");
+    if (messageError) return messageError;
+
+    if (!rawRecipientRelationship) {
+      return {
+        ok: false,
+        error: "recipient_relationship_required",
+        field: "recipientRelationship",
+      };
+    }
+    if (!isRecipientRelationship(rawRecipientRelationship)) {
+      return {
+        ok: false,
+        error: "recipient_relationship_invalid",
+        field: "recipientRelationship",
+      };
+    }
+    recipientRelationship = rawRecipientRelationship;
+  }
+
+  let founderLetterSenderRelationship: FounderLetterSenderRelationship | null =
+    null;
+  if (includeFounderLetter) {
+    if (!rawFounderLetterSenderRelationship) {
+      return {
+        ok: false,
+        error: "founder_letter_sender_relationship_required",
+        field: "founderLetterSenderRelationship",
+      };
+    }
+    if (!isFounderLetterSenderRelationship(rawFounderLetterSenderRelationship)) {
+      return {
+        ok: false,
+        error: "founder_letter_sender_relationship_invalid",
+        field: "founderLetterSenderRelationship",
+      };
+    }
+    founderLetterSenderRelationship = rawFounderLetterSenderRelationship;
+  }
+
   return {
     ok: true,
     value: {
@@ -175,6 +289,10 @@ export function validateFatherDayCardSubmission(
       fatherName,
       message,
       fatherEmail,
+      senderName,
+      recipientRelationship,
+      includeFounderLetter,
+      founderLetterSenderRelationship,
       customerId,
       customerEmail,
       customerName,
@@ -227,6 +345,11 @@ export function buildFatherDayCardRecord(args: {
     fatherName: args.submission.fatherName,
     message: args.submission.message,
     fatherEmail: args.submission.fatherEmail,
+    senderName: args.submission.senderName,
+    recipientRelationship: args.submission.recipientRelationship,
+    includeFounderLetter: args.submission.includeFounderLetter,
+    founderLetterSenderRelationship:
+      args.submission.founderLetterSenderRelationship,
     customerId: args.submission.customerId || null,
     customerEmail: args.submission.customerEmail || null,
     customerName: args.submission.customerName || null,
