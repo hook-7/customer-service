@@ -25,6 +25,8 @@ const FOUNDER_LETTER_SENDER_RELATIONSHIPS = [
   ["daughter", "Daughter"],
   ["wife", "Wife"],
 ];
+const FOUNDER_LETTER_ICON =
+  "data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 48 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='20' y='12' width='22' height='29' rx='2.6' fill='%23F7F7F4' stroke='%23E3DFD8' stroke-width='1.4'/%3E%3Cpath d='M26 22H35.5M26 26H38M26 30H36' stroke='%23C9C3B8' stroke-width='1.3' stroke-linecap='round'/%3E%3Cpath d='M12.2 5.5H26.2L23.2 12.2H15.1L12.2 5.5Z' fill='%2311234A'/%3E%3Cpath d='M15.1 12.2H23.2L28.1 39L18.8 45L9.4 39L15.1 12.2Z' fill='%2311234A'/%3E%3Cpath d='M14 24.7L24.4 18.2M12.8 31.8L25.8 23.7M14 38.6L26.8 30.6' stroke='%23C8894B' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M15.1 12.2L18.7 16.2L23.2 12.2' stroke='%23263C72' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 const ERROR_MESSAGES = {
   invalid_body: "Please check the card details and try again.",
@@ -143,123 +145,49 @@ function FatherDayCardForm() {
   return (
     <s-section>
       <s-stack gap="base">
-        <s-checkbox
-          label="Is this a gift? Send a free Father's Day e-card (Optional)"
-          checked={includeCard}
-          disabled={isSubmitting}
-          onChange={(event) => {
-            const checked = readCheckedValue(event);
-            setIncludeCard(checked);
-            if (!checked) {
-              clearError();
-            }
-          }}
-        />
-        <s-checkbox
-          label="Add a personal letter from our Founder"
-          checked={includeFounderLetter}
-          disabled={isSubmitting}
-          onChange={(event) => {
-            const checked = readCheckedValue(event);
-            setIncludeFounderLetter(checked);
-            if (!checked) {
-              setFounderLetterSenderRelationship("");
-            }
-            clearError();
-          }}
-        />
-        {hasSelectedOption ? (
+        <s-box
+          border="base"
+          borderRadius="large"
+          padding="base"
+          accessibilityLabel="Father's Day message options"
+        >
           <s-stack gap="base">
-            {error ? (
-              <s-banner heading="Card not saved" tone="critical">
-                {error}
-              </s-banner>
-            ) : null}
-            {apiConfig.error ? (
-              <s-banner heading="Card saving unavailable" tone="critical">
-                {apiConfig.error}
-              </s-banner>
-            ) : null}
-            <s-text-field
-              label="Recipient's Name"
-              placeholder='e.g. "Dad", "Papa John"'
-              maxLength={NAME_MAX_LENGTH}
-              required
-              value={fatherName}
-              disabled={isSubmitting}
-              error={fieldError === "fatherName" ? error : undefined}
-              onInput={(event) => {
-                setFatherName(readFieldValue(event));
-                clearError();
-              }}
-            />
-            <s-email-field
-              label="Send to Email"
-              placeholder="their email address"
-              maxLength={EMAIL_MAX_LENGTH}
-              required
-              value={fatherEmail}
-              disabled={isSubmitting}
-              error={fieldError === "fatherEmail" ? error : undefined}
-              onInput={(event) => {
-                setFatherEmail(readFieldValue(event));
-                clearError();
-              }}
-            />
-            <s-text-field
-              label="From"
-              placeholder='your name, e.g. "From Tracy"'
-              maxLength={NAME_MAX_LENGTH}
-              required
-              value={senderName}
-              disabled={isSubmitting}
-              error={fieldError === "senderName" ? error : undefined}
-              onInput={(event) => {
-                setSenderName(readFieldValue(event));
-                clearError();
-              }}
-            />
-            {includeCard ? (
-              <>
-                <s-text-area
-                  label="Your Message"
-                  placeholder="write what you'd like to say"
-                  maxLength={MESSAGE_MAX_LENGTH}
-                  rows={4}
-                  required
-                  value={message}
-                  disabled={isSubmitting}
-                  error={fieldError === "message" ? error : undefined}
-                  onInput={(event) => {
-                    setMessage(readFieldValue(event));
-                    clearError();
-                  }}
+            <s-stack direction="inline" gap="base" alignItems="center">
+              <s-box inlineSize="48px">
+                <s-image
+                  src={FOUNDER_LETTER_ICON}
+                  alt=""
+                  inlineSize="fill"
+                  objectFit="contain"
                 />
-                <s-select
-                  label="This card is for my..."
-                  name="recipientRelationship"
-                  value={recipientRelationship}
-                  required
-                  disabled={isSubmitting}
-                  error={
-                    fieldError === "recipientRelationship" ? error : undefined
-                  }
-                  onChange={(event) => {
-                    const value = readSelectValue(event);
-                    if (typeof value === "string") {
-                      setRecipientRelationship(value);
-                      clearError();
-                    }
-                  }}
-                >
-                  {RECIPIENT_RELATIONSHIPS.map(([value, label]) => (
-                    <s-option key={value} value={value}>
-                      {label}
-                    </s-option>
-                  ))}
-                </s-select>
-              </>
-            ) : null}
+              </s-box>
+              <s-heading></s-heading>
+            </s-stack>
+            <s-checkbox
+              label="Is this a gift? Send a free Father's Day e-card"
+              checked={includeCard}
+              disabled={isSubmitting}
+              onChange={(event) => {
+                const checked = readCheckedValue(event);
+                setIncludeCard(checked);
+                if (!checked) {
+                  clearError();
+                }
+              }}
+            />
+            <s-checkbox
+              label="Add a personal letter from our Founder"
+              checked={includeFounderLetter}
+              disabled={isSubmitting}
+              onChange={(event) => {
+                const checked = readCheckedValue(event);
+                setIncludeFounderLetter(checked);
+                if (!checked) {
+                  setFounderLetterSenderRelationship("");
+                }
+                clearError();
+              }}
+            />
             {includeFounderLetter ? (
               <s-select
                 label="I am his..."
@@ -288,20 +216,116 @@ function FatherDayCardForm() {
                 ))}
               </s-select>
             ) : null}
-            <s-text tone="neutral">
-              We'll send selected Father's Day messages on Father's Day, June
-              21.
-            </s-text>
-            <s-button
-              variant="primary"
-              loading={isSubmitting}
-              disabled={isSubmitting || !canSubmit}
-              onClick={submitCard}
-            >
-              Save Father's Day messages
-            </s-button>
+            {hasSelectedOption ? (
+              <s-stack gap="base">
+                {error ? (
+                  <s-banner heading="Card not saved" tone="critical">
+                    {error}
+                  </s-banner>
+                ) : null}
+                {apiConfig.error ? (
+                  <s-banner heading="Card saving unavailable" tone="critical">
+                    {apiConfig.error}
+                  </s-banner>
+                ) : null}
+                <s-text-field
+                  label="Recipient's Name"
+                  placeholder='e.g. "Dad", "Papa John"'
+                  maxLength={NAME_MAX_LENGTH}
+                  required
+                  value={fatherName}
+                  disabled={isSubmitting}
+                  error={fieldError === "fatherName" ? error : undefined}
+                  onInput={(event) => {
+                    setFatherName(readFieldValue(event));
+                    clearError();
+                  }}
+                />
+                <s-email-field
+                  label="Send to Email"
+                  placeholder="their email address"
+                  maxLength={EMAIL_MAX_LENGTH}
+                  required
+                  value={fatherEmail}
+                  disabled={isSubmitting}
+                  error={fieldError === "fatherEmail" ? error : undefined}
+                  onInput={(event) => {
+                    setFatherEmail(readFieldValue(event));
+                    clearError();
+                  }}
+                />
+                <s-text-field
+                  label="From"
+                  placeholder='your name, e.g. "From Tracy"'
+                  maxLength={NAME_MAX_LENGTH}
+                  required
+                  value={senderName}
+                  disabled={isSubmitting}
+                  error={fieldError === "senderName" ? error : undefined}
+                  onInput={(event) => {
+                    setSenderName(readFieldValue(event));
+                    clearError();
+                  }}
+                />
+                {includeCard ? (
+                  <>
+                    <s-text-area
+                      label="Your Message"
+                      placeholder="write what you'd like to say"
+                      maxLength={MESSAGE_MAX_LENGTH}
+                      rows={4}
+                      required
+                      value={message}
+                      disabled={isSubmitting}
+                      error={fieldError === "message" ? error : undefined}
+                      onInput={(event) => {
+                        setMessage(readFieldValue(event));
+                        clearError();
+                      }}
+                    />
+                    <s-select
+                      label="This card is for my..."
+                      name="recipientRelationship"
+                      value={recipientRelationship}
+                      required
+                      disabled={isSubmitting}
+                      error={
+                        fieldError === "recipientRelationship"
+                          ? error
+                          : undefined
+                      }
+                      onChange={(event) => {
+                        const value = readSelectValue(event);
+                        if (typeof value === "string") {
+                          setRecipientRelationship(value);
+                          clearError();
+                        }
+                      }}
+                    >
+                      {RECIPIENT_RELATIONSHIPS.map(([value, label]) => (
+                        <s-option key={value} value={value}>
+                          {label}
+                        </s-option>
+                      ))}
+                    </s-select>
+                  </>
+                ) : null}
+                <s-text tone="neutral">
+                  We'll send selected Father's Day messages on Father's Day,
+                  June 21.
+                </s-text>
+                <s-button
+                  variant="primary"
+                  loading={isSubmitting}
+                  disabled={isSubmitting || !canSubmit}
+                  onClick={submitCard}
+                >
+                  Save Father's Day messages
+                </s-button>
+              </s-stack>
+            ) : null}
           </s-stack>
-        ) : null}
+        </s-box>
       </s-stack>
     </s-section>
   );
