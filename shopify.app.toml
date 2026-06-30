@@ -32,6 +32,10 @@ api_version = "2026-04"
   uri = "/webhooks/products/delete"
 
   [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+  [[webhooks.subscriptions]]
   compliance_topics = [ "customers/data_request" ]
   uri = "/webhooks/customers/data_request"
 
@@ -44,7 +48,7 @@ api_version = "2026-04"
   uri = "/webhooks/shop/redact"
 
 [access_scopes]
-scopes = "read_products,write_app_proxy,read_own_subscription_contracts"
+scopes = "read_products,write_app_proxy,read_own_subscription_contracts,read_orders,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
@@ -55,3 +59,18 @@ redirect_urls = [ "https://shopify-app.livall.com/auth/callback" ]
 url = "/apps/cs"
 prefix = "apps"
 subpath = "cs"
+
+[order.metafields.app.risk_status]
+name = "Risk Status"
+type = "single_line_text_field"
+access.admin = "merchant_read_write"
+
+[order.metafields.app.risk_score]
+name = "Risk Score"
+type = "number_integer"
+access.admin = "merchant_read_write"
+
+[order.metafields.app.risk_follow_up_note]
+name = "Risk Follow-up Note"
+type = "single_line_text_field"
+access.admin = "merchant_read_write"

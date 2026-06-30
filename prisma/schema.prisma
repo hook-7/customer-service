@@ -59,6 +59,7 @@ enum ConversationStatus {
 enum BackgroundJobType {
   PRODUCT_UPSERT
   PRODUCT_DELETE
+  ORDER_CHARGEBACK_TAG_CHECK
 }
 
 enum BackgroundJobStatus {

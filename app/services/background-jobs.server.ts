@@ -3,8 +3,15 @@ import {
   deleteProductKnowledge,
   syncProductByGid,
 } from "./shopify-products.server";
+import { processOrderChargebackTagCheck } from "./order-chargeback-tags.server";
+import type { OrderChargebackTagJobPayload } from "./order-chargeback-tags";
 
-export type BackgroundJobType = "PRODUCT_UPSERT" | "PRODUCT_DELETE";
+export type BackgroundJobType =
+  | "PRODUCT_UPSERT"
+  | "PRODUCT_DELETE"
+  | "ORDER_CHARGEBACK_TAG_CHECK";
+
+type ProductBackgroundJobType = "PRODUCT_UPSERT" | "PRODUCT_DELETE";
 
 const MAX_ATTEMPTS = 5;
 
@@ -24,7 +31,7 @@ function productGidFromPayload(payload: unknown) {
 
 export async function enqueueProductWebhookJob(
   shop: string,
-  type: BackgroundJobType,
+  type: ProductBackgroundJobType,
   productGid: string,
 ) {
   return prisma.backgroundJob.create({
@@ -36,12 +43,30 @@ export async function enqueueProductWebhookJob(
   });
 }
 
+export async function enqueueOrderChargebackTagCheckJob(
+  shop: string,
+  payload: OrderChargebackTagJobPayload,
+) {
+  return prisma.backgroundJob.create({
+    data: {
+      shop,
+      type: "ORDER_CHARGEBACK_TAG_CHECK",
+      payload,
+    },
+  });
+}
+
 async function runJob(
   type: BackgroundJobType,
   shop: string,
   payload: unknown,
   options: { finalAttempt: boolean },
 ) {
+  if (type === "ORDER_CHARGEBACK_TAG_CHECK") {
+    await processOrderChargebackTagCheck(shop, payload);
+    return;
+  }
+
   const productGid = productGidFromPayload(payload);
   if (!productGid) throw new Error("Background job payload is missing productGid.");
 
@@ -63,16 +88,34 @@ async function runJob(
 
 export async function processPendingBackgroundJobs(limit = 10) {
   const now = new Date();
-  const jobs = await prisma.backgroundJob.findMany({
+  const take = Math.max(1, Math.min(limit, 50));
+  const pendingStatuses: Array<"PENDING" | "FAILED"> = ["PENDING", "FAILED"];
+  const pendingWhere = {
+    status: { in: pendingStatuses },
+    attempts: { lt: MAX_ATTEMPTS },
+    runAfter: { lte: now },
+    lockedAt: null,
+  };
+  const orderJobs = await prisma.backgroundJob.findMany({
     where: {
-      status: { in: ["PENDING", "FAILED"] },
-      attempts: { lt: MAX_ATTEMPTS },
-      runAfter: { lte: now },
-      lockedAt: null,
+      ...pendingWhere,
+      type: "ORDER_CHARGEBACK_TAG_CHECK",
     },
     orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }],
-    take: Math.max(1, Math.min(limit, 50)),
+    take,
   });
+  const otherJobs =
+    orderJobs.length >= take
+      ? []
+      : await prisma.backgroundJob.findMany({
+          where: {
+            ...pendingWhere,
+            type: { not: "ORDER_CHARGEBACK_TAG_CHECK" },
+          },
+          orderBy: [{ runAfter: "asc" }, { createdAt: "asc" }],
+          take: take - orderJobs.length,
+        });
+  const jobs = [...orderJobs, ...otherJobs];
 
   let processed = 0;
   let succeeded = 0;
