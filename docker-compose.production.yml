@@ -1,0 +1,44 @@
+services:
+  app:
+    image: ${APP_IMAGE:-ghcr.io/hook-7/customer-service:latest}
+    container_name: shopify-customer-service-app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SHOPIFY_APP_URL: https://shopify-app.livall.com
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    container_name: shopify-customer-service-db
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - shopify_customer_service_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  shopify_customer_service_pgdata:
