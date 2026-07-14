@@ -17,7 +17,7 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  DEPLOY_PATH: /data/web/shopify-app.livall.com
+  DEPLOY_PATH: /data/app/customer-service-prod
 
 jobs:
   build:

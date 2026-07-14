@@ -1,3 +1,5 @@
+name: shopify-applivallcom
+
 services:
   app:
     image: ${APP_IMAGE:-ghcr.io/hook-7/customer-service:latest}
