@@ -1,0 +1,80 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "755ed3e44376cc56ff0a932d1139101b"
+application_url = "https://shopify-app.livall.com"
+embedded = true
+name = "AI Product Support"
+
+[order.metafields.app.risk_status]
+name = "Risk Status"
+type = "single_line_text_field"
+
+  [order.metafields.app.risk_status.access]
+  admin = "merchant_read_write"
+
+[order.metafields.app.risk_score]
+name = "Risk Score"
+type = "number_integer"
+
+  [order.metafields.app.risk_score.access]
+  admin = "merchant_read_write"
+
+[order.metafields.app.risk_follow_up_note]
+name = "Risk Follow-up Note"
+type = "single_line_text_field"
+
+  [order.metafields.app.risk_follow_up_note.access]
+  admin = "merchant_read_write"
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/update"
+  topics = [ "products/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/delete"
+  topics = [ "products/delete" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/create"
+  topics = [ "products/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/data_request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/customers/redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/shop/redact"
+  compliance_topics = [ "shop/redact" ]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_own_subscription_contracts,read_products,write_app_proxy,write_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://shopify-app.livall.com/auth/callback" ]
+
+[app_proxy]
+url = "https://shopify-app.livall.com/apps/cs"
+subpath = "cs"
+prefix = "apps"
