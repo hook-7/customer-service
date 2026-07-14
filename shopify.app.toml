@@ -12,43 +12,44 @@ automatically_update_urls_on_dev = true
 api_version = "2026-04"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
-
-  [[webhooks.subscriptions]]
-  topics = [ "products/create" ]
-  uri = "/webhooks/products/create"
-
-  [[webhooks.subscriptions]]
-  topics = [ "products/update" ]
   uri = "/webhooks/products/update"
+  topics = [ "products/update" ]
 
   [[webhooks.subscriptions]]
-  topics = [ "products/delete" ]
-  uri = "/webhooks/products/delete"
-
-  [[webhooks.subscriptions]]
-  topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
 
   [[webhooks.subscriptions]]
-  compliance_topics = [ "customers/data_request" ]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/delete"
+  topics = [ "products/delete" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/create"
+  topics = [ "products/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
+  compliance_topics = [ "customers/data_request" ]
 
   [[webhooks.subscriptions]]
-  compliance_topics = [ "customers/redact" ]
   uri = "/webhooks/customers/redact"
+  compliance_topics = [ "customers/redact" ]
 
   [[webhooks.subscriptions]]
-  compliance_topics = [ "shop/redact" ]
   uri = "/webhooks/shop/redact"
+  compliance_topics = [ "shop/redact" ]
 
 [access_scopes]
-scopes = "read_products,write_app_proxy,read_own_subscription_contracts,read_orders,write_orders"
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_own_subscription_contracts,read_products,write_app_proxy,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
@@ -56,21 +57,27 @@ use_legacy_install_flow = false
 redirect_urls = [ "https://shopify-app.livall.com/auth/callback" ]
 
 [app_proxy]
-url = "/apps/cs"
-prefix = "apps"
+url = "https://shopify-app.livall.com/apps/cs"
 subpath = "cs"
+prefix = "apps"
 
 [order.metafields.app.risk_status]
 name = "Risk Status"
 type = "single_line_text_field"
-access.admin = "merchant_read_write"
+
+  [order.metafields.app.risk_status.access]
+  admin = "merchant_read_write"
 
 [order.metafields.app.risk_score]
 name = "Risk Score"
 type = "number_integer"
-access.admin = "merchant_read_write"
+
+  [order.metafields.app.risk_score.access]
+  admin = "merchant_read_write"
 
 [order.metafields.app.risk_follow_up_note]
 name = "Risk Follow-up Note"
 type = "single_line_text_field"
-access.admin = "merchant_read_write"
+
+  [order.metafields.app.risk_follow_up_note.access]
+  admin = "merchant_read_write"
