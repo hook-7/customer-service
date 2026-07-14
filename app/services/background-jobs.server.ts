@@ -1,6 +1,6 @@
 import prisma from "../db.server";
 import {
-  deleteProductKnowledge,
+  deleteProductSnapshot,
   syncProductByGid,
 } from "./shopify-products.server";
 import { processOrderChargebackTagCheck } from "./order-chargeback-tags.server";
@@ -56,34 +56,22 @@ export async function enqueueOrderChargebackTagCheckJob(
   });
 }
 
-async function runJob(
-  type: BackgroundJobType,
-  shop: string,
-  payload: unknown,
-  options: { finalAttempt: boolean },
-) {
+async function runJob(type: BackgroundJobType, shop: string, payload: unknown) {
   if (type === "ORDER_CHARGEBACK_TAG_CHECK") {
     await processOrderChargebackTagCheck(shop, payload);
     return;
   }
 
   const productGid = productGidFromPayload(payload);
-  if (!productGid) throw new Error("Background job payload is missing productGid.");
+  if (!productGid)
+    throw new Error("Background job payload is missing productGid.");
 
   if (type === "PRODUCT_DELETE") {
-    await deleteProductKnowledge(shop, productGid, {
-      finalFailure: options.finalAttempt,
-      scheduleRetryOnFailure: false,
-      throwOnHermesFailure: true,
-    });
+    await deleteProductSnapshot(shop, productGid);
     return;
   }
 
-  await syncProductByGid(shop, productGid, {
-    finalFailure: options.finalAttempt,
-    scheduleRetryOnFailure: false,
-    throwOnHermesFailure: true,
-  });
+  await syncProductByGid(shop, productGid);
 }
 
 export async function processPendingBackgroundJobs(limit = 10) {
@@ -137,13 +125,14 @@ export async function processPendingBackgroundJobs(limit = 10) {
     });
     if (!lock.count) continue;
 
-    const locked = await prisma.backgroundJob.findUnique({ where: { id: job.id } });
+    const locked = await prisma.backgroundJob.findUnique({
+      where: { id: job.id },
+    });
     if (!locked) continue;
 
     processed += 1;
     try {
-      const finalAttempt = locked.attempts >= MAX_ATTEMPTS;
-      await runJob(locked.type, locked.shop, locked.payload, { finalAttempt });
+      await runJob(locked.type, locked.shop, locked.payload);
       await prisma.backgroundJob.update({
         where: { id: locked.id },
         data: {
@@ -161,7 +150,10 @@ export async function processPendingBackgroundJobs(limit = 10) {
           status: "FAILED",
           lockedAt: null,
           lastError: errorMessage(error).slice(0, 2000),
-          runAfter: new Date(Date.now() + (exhausted ? 24 * 60 * 60_000 : retryDelayMs(locked.attempts))),
+          runAfter: new Date(
+            Date.now() +
+              (exhausted ? 24 * 60 * 60_000 : retryDelayMs(locked.attempts)),
+          ),
         },
       });
       failed += 1;

@@ -1,7 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 
-import { authenticate } from "../shopify.server";
-
 const widgetScript = String.raw`
 (function () {
   var VISITOR_KEY = "customer-service-chat-visitor";
@@ -707,9 +705,7 @@ const widgetScript = String.raw`
 })();
 `;
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.public.appProxy(request);
-
+export const loader = (_args: LoaderFunctionArgs) => {
   return new Response(widgetScript, {
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",

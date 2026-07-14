@@ -45,12 +45,6 @@ enum MessageKind {
   PRODUCT_RECOMMENDATION
 }
 
-enum HermesSyncStatus {
-  PENDING
-  SYNCED
-  FAILED
-}
-
 enum ConversationStatus {
   PENDING
   HANDLED
@@ -132,15 +126,11 @@ model ProductSnapshot {
   available        Boolean          @default(false)
   published        Boolean          @default(false)
   sourceUpdatedAt  DateTime?
-  hermesSyncStatus HermesSyncStatus @default(PENDING)
-  hermesSyncedAt   DateTime?
-  hermesError      String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
   @@unique([shop, productGid])
   @@index([shop, available, published])
-  @@index([shop, hermesSyncStatus])
 }
 
 model BackgroundJob {

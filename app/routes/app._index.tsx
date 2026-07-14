@@ -65,7 +65,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     handledConversations,
     pausedAiConversations,
     productSnapshots,
-    failedProducts,
     recentInbox,
   ] = await Promise.all([
     prisma.conversation.count({ where: { shop: session.shop } }),
@@ -79,9 +78,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where: { shop: session.shop, aiEnabled: false },
     }),
     prisma.productSnapshot.count({ where: { shop: session.shop } }),
-    prisma.productSnapshot.count({
-      where: { shop: session.shop, hermesSyncStatus: "FAILED" },
-    }),
     listConversationInbox(session.shop, { pageSize: 5 }),
   ]);
 
@@ -94,29 +90,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           url: "/app/conversations?status=PENDING",
           tone: "critical" as const,
         }
-      : failedProducts > 0
+      : pausedAiConversations > 0
         ? {
-            title: "排查商品同步失败",
-            body: `当前有 ${failedProducts} 个商品未同步到 Hermes，可能影响 AI 推荐准确性。`,
-            action: "排查商品",
-            url: "/app/products?status=failed",
-            tone: "critical" as const,
+            title: "检查 AI 暂停会话",
+            body: `当前有 ${pausedAiConversations} 个会话处于 AI 暂停状态，确认是否需要重新开启。`,
+            action: "查看接管会话",
+            url: "/app/conversations?ai=off",
+            tone: "attention" as const,
           }
-        : pausedAiConversations > 0
-          ? {
-              title: "检查 AI 暂停会话",
-              body: `当前有 ${pausedAiConversations} 个会话处于 AI 暂停状态，确认是否需要重新开启。`,
-              action: "查看接管会话",
-              url: "/app/conversations?ai=off",
-              tone: "attention" as const,
-            }
-          : {
-              title: "后台运行正常",
-              body: "暂无待处理会话和商品同步异常，可以从最近会话继续巡检服务质量。",
-              action: "进入工作台",
-              url: "/app/conversations",
-              tone: "success" as const,
-            };
+        : {
+            title: "后台运行正常",
+            body: "暂无待处理会话，可以从最近会话继续巡检服务质量。",
+            action: "进入工作台",
+            url: "/app/conversations",
+            tone: "success" as const,
+          };
 
   return {
     totalConversations,
@@ -124,7 +112,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     handledConversations,
     pausedAiConversations,
     productSnapshots,
-    failedProducts,
     domainConfig: {
       shopDomain: session.shop,
       storefrontDomain,
@@ -150,7 +137,6 @@ export default function Index() {
     handledConversations,
     pausedAiConversations,
     productSnapshots,
-    failedProducts,
     domainConfig,
     nextAction,
     recent,
@@ -194,17 +180,6 @@ export default function Index() {
                 {pausedAiConversations}
               </Text>
               <Button url="/app/conversations?ai=off">查看接管会话</Button>
-            </BlockStack>
-          </Card>
-          <Card>
-            <BlockStack gap="200">
-              <Text as="p" variant="bodySm" tone="subdued">
-                商品同步失败
-              </Text>
-              <Text as="p" variant="heading2xl">
-                {failedProducts}
-              </Text>
-              <Button url="/app/products?status=failed">排查商品</Button>
             </BlockStack>
           </Card>
         </InlineStack>
@@ -259,7 +234,8 @@ export default function Index() {
                   最近会话
                 </Text>
                 <Text as="p" variant="bodySm" tone="subdued">
-                  共 {totalConversations} 个会话，{productSnapshots} 个商品快照可用于 AI 推荐。
+                  共 {totalConversations} 个会话，{productSnapshots}{" "}
+                  个商品快照可用于 AI 推荐。
                 </Text>
               </BlockStack>
               <Button url="/app/conversations">进入工作台</Button>
@@ -281,7 +257,11 @@ export default function Index() {
                       to={`/app/conversations/${c.id}`}
                       style={{ color: "inherit", textDecoration: "none" }}
                     >
-                      <InlineStack align="space-between" blockAlign="center" gap="300">
+                      <InlineStack
+                        align="space-between"
+                        blockAlign="center"
+                        gap="300"
+                      >
                         <BlockStack gap="100">
                           <div
                             style={{
@@ -291,10 +271,18 @@ export default function Index() {
                               flexWrap: "wrap",
                             }}
                           >
-                            <Text as="span" variant="bodyMd" fontWeight="semibold">
+                            <Text
+                              as="span"
+                              variant="bodyMd"
+                              fontWeight="semibold"
+                            >
                               访客 {c.visitorId.slice(0, 8)}
                             </Text>
-                            <Badge tone={c.status === "PENDING" ? "critical" : "success"}>
+                            <Badge
+                              tone={
+                                c.status === "PENDING" ? "critical" : "success"
+                              }
+                            >
                               {c.status === "PENDING" ? "待处理" : "已处理"}
                             </Badge>
                             <Badge tone={c.aiEnabled ? "success" : "critical"}>

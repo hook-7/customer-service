@@ -18,9 +18,9 @@ import {
 } from "../models/products.server";
 import { authenticate } from "../shopify.server";
 import {
-  askHermesCustomerService,
-  streamHermesCustomerService,
-} from "../services/hermes.server";
+  askAiCustomerService,
+  streamAiCustomerService,
+} from "../services/ai.server";
 import { checkChatRateLimit } from "../services/chat-rate-limit.server";
 import { createConversationStream } from "../services/conversation-stream.server";
 
@@ -31,6 +31,35 @@ const AI_FALLBACK_MESSAGE =
 function fallbackMessage(error?: string) {
   if (error) return AI_FALLBACK_MESSAGE;
   return AI_FALLBACK_MESSAGE;
+}
+
+function buildConversationHistory(
+  messages: Array<{
+    id: string;
+    sender: "VISITOR" | "STAFF" | "AI";
+    kind: "TEXT" | "PRODUCT_RECOMMENDATION";
+    body: string;
+  }>,
+  currentMessageId: string,
+) {
+  return messages
+    .filter(
+      (message) =>
+        message.id !== currentMessageId &&
+        message.kind === "TEXT" &&
+        message.body.trim().length > 0,
+    )
+    .slice(-20)
+    .map((message) => {
+      const label =
+        message.sender === "VISITOR"
+          ? "Customer"
+          : message.sender === "STAFF"
+            ? "Staff"
+            : "Assistant";
+      return `${label}: ${message.body}`;
+    })
+    .join("\n");
 }
 
 function json(data: unknown, init?: ResponseInit) {
@@ -50,16 +79,15 @@ async function appendAiReply(args: {
   conversationId: string;
   shop: string;
   requestClientMessageId: string;
-  reply:
-    | {
-        replyText: string;
-        recommendedProductIds: string[];
-        recommendationReasons?: Record<string, string>;
-      }
-    | null;
+  reply: {
+    replyText: string;
+    recommendedProductIds: string[];
+    recommendationReasons?: Record<string, string>;
+  } | null;
   error?: string;
 }) {
-  const replyText = args.reply?.replyText?.trim() || fallbackMessage(args.error);
+  const replyText =
+    args.reply?.replyText?.trim() || fallbackMessage(args.error);
   const messages = [];
   const textMessage = await appendMessage(
     args.conversationId,
@@ -174,6 +202,13 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     { clientMessageId },
   );
   const ack = serializeMessage(userMessage);
+  const conversationMessages = await listMessagesForConversation(
+    conversation.id,
+  );
+  const conversationHistory = buildConversationHistory(
+    conversationMessages,
+    userMessage.id,
+  );
 
   if (new URL(request.url).searchParams.get("stream") === "1") {
     return createConversationStream({
@@ -184,21 +219,25 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       visitorId,
       text,
       clientMessageId,
+      conversationHistory,
       buildProductContext: () => buildProductContext(shop),
-      streamCustomerService: streamHermesCustomerService,
+      streamCustomerService: streamAiCustomerService,
       appendAiReply: async (args) =>
         (await appendAiReply(args)).map(serializeMessage),
       listMessages: async () =>
-        (await listMessagesForConversation(conversation.id)).map(serializeMessage),
+        (await listMessagesForConversation(conversation.id)).map(
+          serializeMessage,
+        ),
       fallbackMessage,
     });
   }
 
   if (conversation.aiEnabled) {
-    const result = await askHermesCustomerService({
+    const result = await askAiCustomerService({
       shop,
       visitorId,
       message: text,
+      conversationHistory,
       productContext: await buildProductContext(shop),
     });
     await appendAiReply({

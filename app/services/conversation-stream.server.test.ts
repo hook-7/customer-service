@@ -26,7 +26,10 @@ async function readEvents(response: Response) {
 
 test("createConversationStream emits ack, visible delta, assistant_done, and done in order", async () => {
   const ack = message("client-1", "Recommend a product", "VISITOR");
-  const assistant = message("ai-client-1", "I recommend The Complete Snowboard.");
+  const assistant = message(
+    "ai-client-1",
+    "I recommend The Complete Snowboard.",
+  );
   const response = createConversationStream({
     conversationId: "conversation-1",
     aiEnabled: true,
@@ -35,6 +38,7 @@ test("createConversationStream emits ack, visible delta, assistant_done, and don
     visitorId: "visitor-1",
     text: "Recommend a product",
     clientMessageId: "client-1",
+    conversationHistory: "Customer: I need a snowboard.",
     buildProductContext: async () => "Title: The Complete Snowboard",
     streamCustomerService: async ({ onText }) => {
       await onText("I recommend ");
@@ -51,7 +55,10 @@ test("createConversationStream emits ack, visible delta, assistant_done, and don
     fallbackMessage: () => "AI support is temporarily unavailable.",
   });
 
-  assert.equal(response.headers.get("Content-Type"), "application/x-ndjson; charset=utf-8");
+  assert.equal(
+    response.headers.get("Content-Type"),
+    "application/x-ndjson; charset=utf-8",
+  );
   const events = await readEvents(response);
 
   assert.deepEqual(

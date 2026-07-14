@@ -1,7 +1,12 @@
-export type HermesReplyEnvelope = {
+export type AiReplyEnvelope = {
   replyText: string;
   recommendedProductIds: string[];
   recommendationReasons?: Record<string, string>;
+};
+
+type StructuredAiReply = {
+  replyText?: unknown;
+  recommendations?: unknown;
 };
 
 function stripCodeFence(text: string) {
@@ -44,29 +49,43 @@ export function extractPartialReplyText(text: string) {
   return value;
 }
 
-export function parseHermesReply(text: string): HermesReplyEnvelope {
+export function parseAiReply(text: string): AiReplyEnvelope {
   const fallback = {
     replyText: text.trim(),
     recommendedProductIds: [],
   };
 
   try {
-    const parsed = JSON.parse(stripCodeFence(text)) as Partial<HermesReplyEnvelope>;
+    const parsed = JSON.parse(stripCodeFence(text)) as StructuredAiReply;
     const replyText =
-      typeof parsed.replyText === "string" && parsed.replyText.trim().length
+      typeof parsed.replyText === "string" && parsed.replyText.trim()
         ? parsed.replyText.trim()
         : fallback.replyText;
-    const recommendedProductIds = Array.isArray(parsed.recommendedProductIds)
-      ? parsed.recommendedProductIds.filter((id): id is string => typeof id === "string")
+    const recommendations = Array.isArray(parsed.recommendations)
+      ? parsed.recommendations
       : [];
-    const recommendationReasons =
-      parsed.recommendationReasons &&
-      typeof parsed.recommendationReasons === "object" &&
-      !Array.isArray(parsed.recommendationReasons)
-        ? parsed.recommendationReasons
-        : undefined;
+    const recommendedProductIds: string[] = [];
+    const recommendationReasons: Record<string, string> = {};
 
-    return { replyText, recommendedProductIds, recommendationReasons };
+    for (const recommendation of recommendations) {
+      if (!recommendation || typeof recommendation !== "object") continue;
+      const productId = (recommendation as { productId?: unknown }).productId;
+      const reason = (recommendation as { reason?: unknown }).reason;
+      if (typeof productId !== "string" || !productId) continue;
+      recommendedProductIds.push(productId);
+      if (typeof reason === "string" && reason.trim()) {
+        recommendationReasons[productId] = reason.trim();
+      }
+    }
+
+    return {
+      replyText,
+      recommendedProductIds,
+      recommendationReasons:
+        Object.keys(recommendationReasons).length > 0
+          ? recommendationReasons
+          : undefined,
+    };
   } catch {
     return fallback;
   }

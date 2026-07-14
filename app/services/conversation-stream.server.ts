@@ -27,11 +27,13 @@ type CreateConversationStreamArgs = {
   visitorId: string;
   text: string;
   clientMessageId: string;
+  conversationHistory: string;
   buildProductContext: () => Promise<string>;
   streamCustomerService: (args: {
     shop: string;
     visitorId: string;
     message: string;
+    conversationHistory: string;
     productContext: string;
     onText: (text: string) => Promise<void> | void;
   }) => Promise<StreamResult>;
@@ -54,7 +56,8 @@ export function createConversationStream(args: CreateConversationStreamArgs) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (data: unknown) => controller.enqueue(encoder.encode(ndjson(data)));
+      const send = (data: unknown) =>
+        controller.enqueue(encoder.encode(ndjson(data)));
 
       try {
         send({
@@ -71,6 +74,7 @@ export function createConversationStream(args: CreateConversationStreamArgs) {
             shop: args.shop,
             visitorId: args.visitorId,
             message: args.text,
+            conversationHistory: args.conversationHistory,
             productContext: await args.buildProductContext(),
             onText: (delta) => {
               streamedAnyText = true;
@@ -78,7 +82,10 @@ export function createConversationStream(args: CreateConversationStreamArgs) {
             },
           });
           if (!result.reply && !streamedAnyText) {
-            send({ type: "assistant_delta", text: args.fallbackMessage(result.error) });
+            send({
+              type: "assistant_delta",
+              text: args.fallbackMessage(result.error),
+            });
           }
           const assistantMessages = await args.appendAiReply({
             conversationId: args.conversationId,

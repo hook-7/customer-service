@@ -2,8 +2,6 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 
 import {
   markProductDeleted,
-  type ProductSyncOptions,
-  syncProductSnapshotToHermes,
   upsertProductSnapshot,
 } from "../models/products.server";
 import { unauthenticated } from "../shopify.server";
@@ -18,7 +16,10 @@ type ProductNode = {
   updatedAt?: string | null;
   featuredImage?: { url?: string | null } | null;
   priceRangeV2?: {
-    minVariantPrice?: { amount?: string | null; currencyCode?: string | null } | null;
+    minVariantPrice?: {
+      amount?: string | null;
+      currencyCode?: string | null;
+    } | null;
   } | null;
   variants?: {
     nodes?: Array<{
@@ -122,7 +123,11 @@ function stripHtml(html?: string | null) {
     .trim();
 }
 
-function storefrontUrl(shop: string, handle: string, onlineStoreUrl?: string | null) {
+function storefrontUrl(
+  shop: string,
+  handle: string,
+  onlineStoreUrl?: string | null,
+) {
   return onlineStoreUrl || `https://${shop}/products/${handle}`;
 }
 
@@ -142,22 +147,21 @@ async function graphql<T>(
   return (await response.json()) as T;
 }
 
-type ShopifyProductSyncOptions = ProductSyncOptions & {
-  throwOnHermesFailure?: boolean;
-};
-
 export async function syncShopifyProductNode(
   shop: string,
   product: ProductNode,
-  options: ShopifyProductSyncOptions = {},
 ) {
   const defaultVariant = chooseDefaultVariant(product);
-  const price = defaultVariant?.price || product.priceRangeV2?.minVariantPrice?.amount || null;
-  const currencyCode = product.priceRangeV2?.minVariantPrice?.currencyCode || null;
+  const price =
+    defaultVariant?.price ||
+    product.priceRangeV2?.minVariantPrice?.amount ||
+    null;
+  const currencyCode =
+    product.priceRangeV2?.minVariantPrice?.currencyCode || null;
   const published = product.status === "ACTIVE";
   const available = published && Boolean(defaultVariant);
 
-  const snapshot = await upsertProductSnapshot(shop, {
+  return upsertProductSnapshot(shop, {
     productGid: product.id,
     title: product.title,
     description: stripHtml(product.descriptionHtml),
@@ -171,28 +175,24 @@ export async function syncShopifyProductNode(
     published,
     sourceUpdatedAt: product.updatedAt ? new Date(product.updatedAt) : null,
   });
-
-  const hermesSynced = await syncProductSnapshotToHermes(
-    shop,
-    snapshot.productGid,
-    "UPSERT_PRODUCT",
-    options,
-  );
-  if (!hermesSynced && options.throwOnHermesFailure) {
-    throw new Error("Hermes product knowledge sync failed.");
-  }
-  return snapshot;
 }
 
-export async function syncAllPublishedProducts(admin: AdminApiContext, shop: string) {
+export async function syncAllPublishedProducts(
+  admin: AdminApiContext,
+  shop: string,
+) {
   let after: string | null = null;
   let synced = 0;
 
   do {
-    const data: ProductsResponse = await graphql<ProductsResponse>(admin, PRODUCTS_QUERY, {
-      first: 50,
-      after,
-    });
+    const data: ProductsResponse = await graphql<ProductsResponse>(
+      admin,
+      PRODUCTS_QUERY,
+      {
+        first: 50,
+        after,
+      },
+    );
     if (data.errors) throw new Error("Shopify products query failed.");
 
     const products = data.data?.products?.nodes || [];
@@ -209,46 +209,22 @@ export async function syncAllPublishedProducts(admin: AdminApiContext, shop: str
   return { synced };
 }
 
-export async function syncProductByGid(
-  shop: string,
-  productGid: string,
-  options: ShopifyProductSyncOptions = {},
-) {
+export async function syncProductByGid(shop: string, productGid: string) {
   const { admin } = await unauthenticated.admin(shop);
-  const data = await graphql<ProductResponse>(admin, PRODUCT_QUERY, { id: productGid });
+  const data = await graphql<ProductResponse>(admin, PRODUCT_QUERY, {
+    id: productGid,
+  });
   if (data.errors) throw new Error("Shopify product query failed.");
 
   const product = data.data?.product;
   if (!product) {
     await markProductDeleted(shop, productGid);
-    const hermesSynced = await syncProductSnapshotToHermes(
-      shop,
-      productGid,
-      "DELETE_PRODUCT",
-      options,
-    );
-    if (!hermesSynced && options.throwOnHermesFailure) {
-      throw new Error("Hermes product knowledge delete sync failed.");
-    }
     return null;
   }
 
-  return syncShopifyProductNode(shop, product, options);
+  return syncShopifyProductNode(shop, product);
 }
 
-export async function deleteProductKnowledge(
-  shop: string,
-  productGid: string,
-  options: ShopifyProductSyncOptions = {},
-) {
-  await markProductDeleted(shop, productGid);
-  const hermesSynced = await syncProductSnapshotToHermes(
-    shop,
-    productGid,
-    "DELETE_PRODUCT",
-    options,
-  );
-  if (!hermesSynced && options.throwOnHermesFailure) {
-    throw new Error("Hermes product knowledge delete sync failed.");
-  }
+export async function deleteProductSnapshot(shop: string, productGid: string) {
+  return markProductDeleted(shop, productGid);
 }
